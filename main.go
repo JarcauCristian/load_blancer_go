@@ -12,7 +12,7 @@ func main() {
 		fmt.Println("Something happened when creating the instance!")
 		return
 	}
-
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.POST("/add_instance", func(c *gin.Context) {
 		var instance InstanceModel
