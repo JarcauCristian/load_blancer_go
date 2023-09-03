@@ -1,18 +1,18 @@
 package main
 
-type Instance struct {
+type InstanceModel struct {
 	Url       string `json:"url" binding:"required"`
 	Token     string `json:"token" binding:"required"`
 	AccessKey string `json:"access_key" binding:"required"`
 	SecretKey string `json:"secret_key" binding:"required"`
 }
 
-type Servers struct {
-	Instances []Instance `json:"instances" binding:"required"`
+type ServersModel struct {
+	Instances []InstanceModel `json:"instances" binding:"required"`
 }
 
-type Tags struct {
-	Instance map[string]string
+type TagsModel struct {
+	Tags map[string]string `json:"tags" binding:"required"`
 }
 
 type Config struct {

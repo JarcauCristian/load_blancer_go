@@ -15,11 +15,12 @@ import (
 
 //type Functions interface {
 //	addInstance(instance Instance) []string
+//	addInstances(servers Servers) []string
 //	Healths(index int) map[string]string
 //	searchByTags() []map[string][]string
 //}
 
-func (minioInstance MinIO) addInstance(instance Instance) error {
+func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 	var config []Config
 	reader, err := os.Open("./configs/config.json")
 
@@ -64,7 +65,7 @@ func (minioInstance MinIO) addInstance(instance Instance) error {
 	}
 	minioInstance.clients[instance.Url] = minioClient
 
-	cmd := exec.Command("./mc.exe", "alias", "set", alias, accessKey, secretKey)
+	cmd := exec.Command("./mc.exe", "alias", "set", alias, instance.Url, accessKey, secretKey)
 	if err = cmd.Run(); err != nil {
 		return err
 	}
@@ -79,6 +80,81 @@ func (minioInstance MinIO) addInstance(instance Instance) error {
 
 	config = append(config, addConfig)
 
+	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+
+	encoder := json.NewEncoder(file)
+	if err = encoder.Encode(config); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (minioInstance MinIO) addInstances(servers ServersModel) error {
+	var config []Config
+	reader, err := os.Open("./configs/config.json")
+
+	if err != nil {
+		return err
+	}
+
+	data, readErr := io.ReadAll(reader)
+
+	if readErr != nil {
+		return readErr
+	}
+
+	if err = json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	for _, server := range servers.Instances {
+		splits := strings.Split(server.Url, ":")
+
+		var secure bool
+		if splits[0] == "https" {
+			secure = true
+		} else {
+			secure = false
+		}
+
+		endpoint := splits[1][2:] + ":" + splits[2]
+		accessKey := server.AccessKey
+		secretKey := server.SecretKey
+
+		alias := fmt.Sprintf("minio%d", minioInstance.currentIndex)
+		minioInstance.aliases[server.Url] = alias
+		minioInstance.currentIndex++
+		minioInstance.tokens[server.Url] = server.Token
+
+		minioClient, err := minio.New(endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
+			Secure: secure,
+		})
+		if err != nil {
+			return err
+		}
+		minioInstance.clients[server.Url] = minioClient
+
+		cmd := exec.Command("./mc.exe", "alias", "set", alias, server.Url, accessKey, secretKey)
+		if err = cmd.Run(); err != nil {
+			return err
+		}
+
+		addConfig := Config{
+			Token:     server.Token,
+			Alias:     alias,
+			SecretKey: base64.StdEncoding.EncodeToString([]byte(secretKey)),
+			AccessKey: base64.StdEncoding.EncodeToString([]byte(accessKey)),
+			Site:      server.Url,
+		}
+
+		config = append(config, addConfig)
+	}
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
 	defer file.Close()
 	if err != nil {
@@ -118,6 +194,38 @@ func (minioInstance MinIO) Healths() (map[string]string, error) {
 	wg.Wait()
 
 	return health, nil
+}
+
+func (minioInstance MinIO) searchByTags(tags TagsModel) ([]map[string][]string, error) {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	healthyInstancesLength := len(healthyInstances)
+	var findings = make([]map[string][]string, healthyInstancesLength)
+	index := 0
+
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+
+		alias := []string{k, v}
+		go func(alias []string, tags TagsModel) {
+			defer wg.Done()
+			finding, err := searchTags(alias, tags.Tags)
+			if err != nil {
+				fmt.Println("An error occurred!")
+			}
+			findings[index] = finding
+			index++
+		}(alias, tags)
+
+	}
+
+	wg.Wait()
+
+	return findings, nil
 }
 
 type MinIO struct {

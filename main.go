@@ -3,15 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"sync"
 )
-
-type user struct {
-	USER     string `json:"user" binding:"required"`
-	PASSWORD string `json:"password" binding:"required"`
-}
-
-var wg sync.WaitGroup
 
 func main() {
 	var minio, err = NewMinIO()
@@ -23,7 +15,7 @@ func main() {
 
 	r := gin.Default()
 	r.POST("/add_instance", func(c *gin.Context) {
-		var instance Instance
+		var instance InstanceModel
 		addInstanceErr := c.BindJSON(&instance)
 		if addInstanceErr != nil {
 			c.JSON(400, gin.H{
@@ -33,24 +25,56 @@ func main() {
 			addInstanceErr = minio.addInstance(instance)
 			if addInstanceErr != nil {
 				c.JSON(500, gin.H{
-					"error_message": fmt.Sprintf("Something happened when trying to add the instance!%e", addInstanceErr),
+					"error_message": fmt.Sprintf("Something happened when trying to add the instance!%s", addInstanceErr.Error()),
 				})
 			} else {
 				c.JSON(200, gin.H{
-					"message": "Success!",
+					"message": "Added instance successfully!",
 				})
 			}
 		}
 	})
-	r.POST("/get_health", func(c *gin.Context) {
-		healths, err := minio.Healths()
-		if err != nil {
-			return
+
+	r.POST("/add_instances", func(c *gin.Context) {
+		var servers ServersModel
+		addInstancesErr := c.BindJSON(&servers)
+		if addInstancesErr != nil {
+			c.JSON(400, gin.H{
+				"message": "Body is not correct!",
+			})
+		} else {
+			addInstancesErr = minio.addInstances(servers)
+			if addInstancesErr != nil {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("Something happened when trying to add the instance!%s", addInstancesErr.Error()),
+				})
+			} else {
+				c.JSON(200, gin.H{
+					"message": "Added instance successfully!",
+				})
+			}
 		}
-		c.JSON(200, gin.H{
-			"message": healths,
-		})
 	})
+
+	r.POST("/search_by_tags", func(c *gin.Context) {
+		var tags TagsModel
+		searchByTagsErr := c.BindJSON(&tags)
+		if searchByTagsErr != nil {
+			c.JSON(400, gin.H{
+				"message": "Body is not correct!",
+			})
+		} else {
+			searchByTagsOutput, searchByTagsErr := minio.searchByTags(tags)
+			if searchByTagsErr != nil {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByTagsErr.Error()),
+				})
+			} else {
+				c.JSON(200, searchByTagsOutput)
+			}
+		}
+	})
+
 	err = r.Run()
 	if err != nil {
 		return
