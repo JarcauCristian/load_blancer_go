@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"io"
+	"mime/multipart"
 )
 
 func main() {
@@ -14,6 +17,7 @@ func main() {
 	}
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+	r.MaxMultipartMemory = 100 << 20
 	r.POST("/add_instance", func(c *gin.Context) {
 		var instance InstanceModel
 		addInstanceErr := c.BindJSON(&instance)
@@ -75,7 +79,98 @@ func main() {
 		}
 	})
 
-	err = r.Run()
+	r.PUT("/put_object", func(c *gin.Context) {
+
+		file, okFile := c.GetPostForm("file")
+		fileName, okFileName := c.GetPostForm("file_name")
+		tags, okTags := c.GetPostForm("tags")
+
+		var mapTags map[string]interface{}
+
+		if !okFile && !okFileName && !okTags {
+			c.JSON(400, gin.H{
+				"message": "Format is incorrect!",
+			})
+		} else {
+			err := json.Unmarshal([]byte(tags), &mapTags)
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Something happened when unmarshalling!",
+				})
+			}
+		}
+		content := []byte(file)
+		contentSize := float64(len(content))
+		err := minio.putObject(content, fileName, mapTags, contentSize)
+
+		if err != nil {
+			c.JSON(500, gin.H{
+				"message": "Something happened when trying to upload the object!",
+			})
+		}
+
+		c.JSON(201, gin.H{
+			"message": "Upload object successfully!",
+		})
+	})
+
+	r.PUT("/upload", func(c *gin.Context) {
+
+		var uploadModel UploadModel
+
+		if err := c.ShouldBind(&uploadModel); err != nil {
+			c.JSON(400, gin.H{
+				"message": "Format is incorrect!",
+			})
+		}
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(400, gin.H{
+				"message": "File is missing!",
+			})
+		}
+
+		tags := uploadModel.Tags
+
+		var mapTags map[string]string
+
+		err = json.Unmarshal([]byte(tags), &mapTags)
+
+		if err != nil {
+			c.JSON(400, gin.H{
+				"message": "Tags are not in the right format!",
+			})
+		}
+
+		fileSize := file.Size
+
+		content, err := file.Open()
+		defer func(content multipart.File) {
+			err := content.Close()
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Error closing the file!",
+				})
+			}
+		}(content)
+
+		if err != nil {
+			c.JSON(400, gin.H{
+				"message": "File is empty!",
+			})
+		}
+		reader := io.Reader(content)
+
+		err = minio.uploadFile(reader, mapTags, float64(fileSize), file.Filename)
+
+		if err != nil {
+			c.JSON(500, gin.H{
+				"message": "Something happened when trying to upload the file!",
+			})
+		}
+	})
+
+	err = r.Run(":8000")
 	if err != nil {
 		return
 	}

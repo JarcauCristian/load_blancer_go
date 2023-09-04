@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -12,13 +14,6 @@ import (
 	"strings"
 	"sync"
 )
-
-//type Functions interface {
-//	addInstance(instance Instance) []string
-//	addInstances(servers Servers) []string
-//	Healths(index int) map[string]string
-//	searchByTags() []map[string][]string
-//}
 
 func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 	var config []Config
@@ -81,7 +76,9 @@ func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 	config = append(config, addConfig)
 
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 	if err != nil {
 		return err
 	}
@@ -156,7 +153,9 @@ func (minioInstance MinIO) addInstances(servers ServersModel) error {
 		config = append(config, addConfig)
 	}
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 	if err != nil {
 		return err
 	}
@@ -209,16 +208,16 @@ func (minioInstance MinIO) searchByTags(tags TagsModel) ([]map[string][]string, 
 
 	wg.Add(healthyInstancesLength)
 	for k, v := range healthyInstances {
-
 		alias := []string{k, v}
 		go func(alias []string, tags TagsModel) {
 			defer wg.Done()
 			finding, err := searchTags(alias, tags.Tags)
 			if err != nil {
 				fmt.Println("An error occurred!")
+			} else {
+				findings[index] = finding
+				index++
 			}
-			findings[index] = finding
-			index++
 		}(alias, tags)
 
 	}
@@ -226,6 +225,134 @@ func (minioInstance MinIO) searchByTags(tags TagsModel) ([]map[string][]string, 
 	wg.Wait()
 
 	return findings, nil
+}
+
+func (minioInstance MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	healthyInstancesLength := len(healthyInstances)
+	var spaces = make([]map[string]float64, healthyInstancesLength)
+	index := 0
+
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+		token := minioInstance.tokens[k]
+		site := k
+		go func(alias []string, token string, fileSize float64) {
+			defer wg.Done()
+			spaceLeft, err := getTotalBytes(alias, token, fileSize)
+			if err != nil {
+				return
+			} else {
+				spaces[index] = map[string]float64{site: spaceLeft}
+				index++
+			}
+		}(alias, token, fileSize)
+	}
+
+	wg.Wait()
+
+	maxim := 0.0
+	var targetSite string
+	for _, space := range spaces {
+		for k, v := range space {
+			if v > maxim {
+				targetSite = k
+				maxim = v
+			}
+		}
+	}
+
+	var newTags = make(map[string]string, len(tags))
+	for k, v := range tags {
+		newTags[k] = v.(string)
+	}
+
+	object, err := minioInstance.clients[targetSite].PutObject(
+		context.Background(),
+		"dataspace",
+		fileName,
+		bytes.NewReader(content),
+		-1,
+		minio.PutObjectOptions{
+			PartSize:    1024 * 1024 * 5,
+			UserTags:    newTags,
+			ContentType: "application/json",
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(object.Bucket, object.Size, object.Location)
+
+	return nil
+}
+
+func (minioInstance MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string) error {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	healthyInstancesLength := len(healthyInstances)
+	var spaces = make([]map[string]float64, healthyInstancesLength)
+	index := 0
+
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+		token := minioInstance.tokens[k]
+		site := k
+		go func(alias []string, token string, fileSize float64) {
+			defer wg.Done()
+			spaceLeft, err := getTotalBytes(alias, token, fileSize)
+			if err != nil {
+				return
+			} else {
+				spaces[index] = map[string]float64{site: spaceLeft}
+				index++
+			}
+		}(alias, token, fileSize)
+	}
+
+	wg.Wait()
+	fmt.Println(spaces)
+	maxim := 0.0
+	var targetSite string
+	for _, space := range spaces {
+		for k, v := range space {
+			if v > maxim {
+				targetSite = k
+				maxim = v
+			}
+		}
+	}
+
+	object, err := minioInstance.clients[targetSite].PutObject(
+		context.Background(),
+		"dataspace",
+		fileName,
+		reader,
+		int64(fileSize),
+		minio.PutObjectOptions{
+			UserTags:    tags,
+			ContentType: "application/json",
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(object.Bucket, object.Size, object.Location)
+
+	return nil
 }
 
 type MinIO struct {
