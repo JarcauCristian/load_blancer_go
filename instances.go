@@ -13,14 +13,7 @@ import (
 	"sync"
 )
 
-//type Functions interface {
-//	addInstance(instance Instance) []string
-//	addInstances(servers Servers) []string
-//	Healths(index int) map[string]string
-//	searchByTags() []map[string][]string
-//}
-
-func (minioInstance MinIO) addInstance(instance InstanceModel) error {
+func (minioInstance *MinIO) addInstance(instance InstanceModel) error {
 	var config []Config
 	reader, err := os.Open("./configs/config.json")
 
@@ -81,7 +74,9 @@ func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 	config = append(config, addConfig)
 
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 	if err != nil {
 		return err
 	}
@@ -94,7 +89,7 @@ func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 	return nil
 }
 
-func (minioInstance MinIO) addInstances(servers ServersModel) error {
+func (minioInstance *MinIO) addInstances(servers ServersModel) error {
 	var config []Config
 	reader, err := os.Open("./configs/config.json")
 
@@ -156,7 +151,9 @@ func (minioInstance MinIO) addInstances(servers ServersModel) error {
 		config = append(config, addConfig)
 	}
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 	if err != nil {
 		return err
 	}
@@ -169,7 +166,7 @@ func (minioInstance MinIO) addInstances(servers ServersModel) error {
 	return nil
 }
 
-func (minioInstance MinIO) Healths() (map[string]string, error) {
+func (minioInstance *MinIO) Healths() (map[string]string, error) {
 	var wg sync.WaitGroup
 
 	aliasesLength := len(minioInstance.aliases)
@@ -196,7 +193,7 @@ func (minioInstance MinIO) Healths() (map[string]string, error) {
 	return health, nil
 }
 
-func (minioInstance MinIO) searchByTags(tags TagsModel) ([]map[string][]string, error) {
+func (minioInstance *MinIO) searchByTags(tags TagsModel) ([]map[string][]string, error) {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return nil, err
