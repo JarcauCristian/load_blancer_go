@@ -1,5 +1,7 @@
 package main
 
+import "mime/multipart"
+
 type InstanceModel struct {
 	Url       string `json:"url" binding:"required"`
 	Token     string `json:"token" binding:"required"`
@@ -21,4 +23,9 @@ type Config struct {
 	Alias     string `json:"alias"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
+}
+
+type UploadModel struct {
+	Tags     string          `form:"tags" binding:"required"`
+	fileData *multipart.File `form:"file" binding:"required"`
 }
