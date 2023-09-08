@@ -84,10 +84,12 @@ func main() {
 		file, okFile := c.GetPostForm("file")
 		fileName, okFileName := c.GetPostForm("file_name")
 		tags, okTags := c.GetPostForm("tags")
+		patientID, okPatientID := c.GetPostForm("patient_id")
+		hospital, okHospital := c.GetPostForm("hospital")
 
 		var mapTags map[string]interface{}
 
-		if !okFile && !okFileName && !okTags {
+		if !okFile && !okFileName && !okTags && !okPatientID && !okHospital {
 			c.JSON(400, gin.H{
 				"message": "Format is incorrect!",
 			})
@@ -101,7 +103,7 @@ func main() {
 		}
 		content := []byte(file)
 		contentSize := float64(len(content))
-		err := minio.putObject(content, fileName, mapTags, contentSize)
+		err := minio.putObject(content, fileName, mapTags, contentSize, patientID, hospital)
 
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -167,6 +169,26 @@ func main() {
 			c.JSON(500, gin.H{
 				"message": "Something happened when trying to upload the file!",
 			})
+		}
+	})
+
+	r.GET("/get_keys", func(c *gin.Context) {
+		url, ok := c.GetQuery("url")
+
+		if !ok {
+			c.JSON(400, gin.H{
+				"message": "Please add the url query parameter!",
+			})
+		} else {
+			keys, err := minio.getKeys(url)
+
+			if err != "" {
+				c.JSON(500, gin.H{
+					"message": err,
+				})
+			} else {
+				c.JSON(200, keys)
+			}
 		}
 	})
 

@@ -73,6 +73,11 @@ func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 		Site:      instance.Url,
 	}
 
+	minioInstance.keys[instance.Url] = map[string]string{
+		"access_key": base64.StdEncoding.EncodeToString([]byte(accessKey)),
+		"secret_key": base64.StdEncoding.EncodeToString([]byte(secretKey)),
+	}
+
 	config = append(config, addConfig)
 
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
@@ -151,6 +156,10 @@ func (minioInstance MinIO) addInstances(servers ServersModel) error {
 		}
 
 		config = append(config, addConfig)
+		minioInstance.keys[server.Url] = map[string]string{
+			"access_key": base64.StdEncoding.EncodeToString([]byte(accessKey)),
+			"secret_key": base64.StdEncoding.EncodeToString([]byte(secretKey)),
+		}
 	}
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
 	defer func(file *os.File) {
@@ -227,7 +236,14 @@ func (minioInstance MinIO) searchByTags(tags TagsModel) ([]map[string][]string, 
 	return findings, nil
 }
 
-func (minioInstance MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {
+func (minioInstance MinIO) getKeys(site string) (map[string]string, string) {
+	if returnKeys, ok := minioInstance.keys[site]; ok {
+		return returnKeys, ""
+	}
+	return nil, "Instance is not present in the balancer!"
+}
+
+func (minioInstance MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64, patientID string, hospital string) error {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return err
@@ -359,6 +375,7 @@ type MinIO struct {
 	aliases      map[string]string
 	clients      map[string]*minio.Client
 	tokens       map[string]string
+	keys         map[string]map[string]string
 	currentIndex int
 }
 
@@ -389,6 +406,7 @@ func NewMinIO() (*MinIO, error) {
 	var aliases = make(map[string]string)
 	var clients = make(map[string]*minio.Client)
 	var tokens = make(map[string]string)
+	var keys = make(map[string]map[string]string)
 
 	for _, line := range config {
 		var secure bool
@@ -409,6 +427,10 @@ func NewMinIO() (*MinIO, error) {
 
 		if base64Err != nil {
 			return nil, err
+		}
+		keys[line.Site] = map[string]string{
+			"access_key": line.AccessKey,
+			"secret_key": line.SecretKey,
 		}
 
 		aliases[line.Site] = line.Alias
@@ -434,5 +456,6 @@ func NewMinIO() (*MinIO, error) {
 		aliases:      aliases,
 		tokens:       tokens,
 		clients:      clients,
+		keys:         keys,
 	}, nil
 }
