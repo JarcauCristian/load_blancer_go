@@ -64,7 +64,53 @@ func searchTags(alias []string, tags map[string]string) (map[string][]string, er
 	scanner := bufio.NewScanner(&stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
-		findings = append(findings, strings.Join(strings.Split(line, "/")[1:], "/"))
+		findings = append(findings, line)
+	}
+
+	return map[string][]string{alias[0]: findings}, nil
+}
+
+func searchContentType(alias []string, contentType string) (map[string][]string, error) {
+	cmdArgs := []string{"./mc.exe", "find", alias[1], fmt.Sprintf("--metadata=Content-Type=%s", contentType)}
+
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	var findings []string
+	scanner := bufio.NewScanner(&stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		findings = append(findings, line)
+	}
+
+	return map[string][]string{alias[0]: findings}, nil
+}
+
+func searchExtension(alias []string, extension string) (map[string][]string, error) {
+	cmdArgs := []string{"./mc.exe", "find", alias[1], fmt.Sprintf("--name=*.%s", extension)}
+
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	var findings []string
+	scanner := bufio.NewScanner(&stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		findings = append(findings, line)
 	}
 
 	return map[string][]string{alias[0]: findings}, nil

@@ -15,7 +15,7 @@ import (
 	"sync"
 )
 
-func (minioInstance MinIO) addInstance(instance InstanceModel) error {
+func (minioInstance *MinIO) addInstance(instance InstanceModel) error {
 	var config []Config
 	reader, err := os.Open("./configs/config.json")
 
@@ -73,11 +73,6 @@ func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 		Site:      instance.Url,
 	}
 
-	minioInstance.keys[instance.Url] = map[string]string{
-		"access_key": base64.StdEncoding.EncodeToString([]byte(accessKey)),
-		"secret_key": base64.StdEncoding.EncodeToString([]byte(secretKey)),
-	}
-
 	config = append(config, addConfig)
 
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
@@ -96,7 +91,7 @@ func (minioInstance MinIO) addInstance(instance InstanceModel) error {
 	return nil
 }
 
-func (minioInstance MinIO) addInstances(servers ServersModel) error {
+func (minioInstance *MinIO) addInstances(servers ServersModel) error {
 	var config []Config
 	reader, err := os.Open("./configs/config.json")
 
@@ -156,10 +151,6 @@ func (minioInstance MinIO) addInstances(servers ServersModel) error {
 		}
 
 		config = append(config, addConfig)
-		minioInstance.keys[server.Url] = map[string]string{
-			"access_key": base64.StdEncoding.EncodeToString([]byte(accessKey)),
-			"secret_key": base64.StdEncoding.EncodeToString([]byte(secretKey)),
-		}
 	}
 	file, err := os.OpenFile("./configs/config.json", os.O_CREATE, os.ModePerm)
 	defer func(file *os.File) {
@@ -177,7 +168,7 @@ func (minioInstance MinIO) addInstances(servers ServersModel) error {
 	return nil
 }
 
-func (minioInstance MinIO) Healths() (map[string]string, error) {
+func (minioInstance *MinIO) Healths() (map[string]string, error) {
 	var wg sync.WaitGroup
 
 	aliasesLength := len(minioInstance.aliases)
@@ -204,7 +195,7 @@ func (minioInstance MinIO) Healths() (map[string]string, error) {
 	return health, nil
 }
 
-func (minioInstance MinIO) searchByTags(tags TagsModel) ([]map[string][]string, error) {
+func (minioInstance *MinIO) searchByTags(tags TagsModel) ([]map[string][]string, error) {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return nil, err
@@ -236,14 +227,105 @@ func (minioInstance MinIO) searchByTags(tags TagsModel) ([]map[string][]string, 
 	return findings, nil
 }
 
-func (minioInstance MinIO) getKeys(site string) (map[string]string, string) {
-	if returnKeys, ok := minioInstance.keys[site]; ok {
-		return returnKeys, ""
+func (minioInstance *MinIO) searchByContentType(contentType string) ([]map[string][]string, error) {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return nil, err
 	}
-	return nil, "Instance is not present in the balancer!"
+
+	var wg sync.WaitGroup
+	healthyInstancesLength := len(healthyInstances)
+	var findings = make([]map[string][]string, healthyInstancesLength)
+	index := 0
+
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+		go func(alias []string, contentType string) {
+			defer wg.Done()
+			finding, err := searchContentType(alias, contentType)
+			if err != nil {
+				fmt.Println("An error occurred!")
+			} else {
+				findings[index] = finding
+				index++
+			}
+		}(alias, contentType)
+
+	}
+
+	wg.Wait()
+
+	return findings, nil
 }
 
-func (minioInstance MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64, patientID string, hospital string) error {
+func (minioInstance *MinIO) searchByExtension(extension string) ([]map[string][]string, error) {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	healthyInstancesLength := len(healthyInstances)
+	var findings = make([]map[string][]string, healthyInstancesLength)
+	index := 0
+
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+		go func(alias []string, extension string) {
+			defer wg.Done()
+			finding, err := searchExtension(alias, extension)
+			if err != nil {
+				fmt.Println("An error occurred!")
+			} else {
+				findings[index] = finding
+				index++
+			}
+		}(alias, extension)
+
+	}
+
+	wg.Wait()
+
+	return findings, nil
+}
+
+func (minioInstance *MinIO) getDatasetTags(datasetPath string) ([]string, error) {
+	var mp map[string]interface{}
+
+	cmdArgs := []string{"./mc.exe", "tag", "list", datasetPath, "--json"}
+
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(stdout.Bytes(), &mp)
+	if err != nil {
+		return nil, err
+	}
+
+	if mp["status"].(string) == "success" {
+		switch v := mp["tagset"].(type) {
+		case map[string]interface{}:
+			for s, b := range v {
+				fmt.Printf("%s: book=%s\n", s, b)
+			}
+		default:
+			fmt.Println("Something else")
+		}
+	}
+
+	return []string{}, nil
+}
+
+func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return err
@@ -310,7 +392,7 @@ func (minioInstance MinIO) putObject(content []byte, fileName string, tags map[s
 	return nil
 }
 
-func (minioInstance MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string) error {
+func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string) error {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return err
@@ -375,7 +457,6 @@ type MinIO struct {
 	aliases      map[string]string
 	clients      map[string]*minio.Client
 	tokens       map[string]string
-	keys         map[string]map[string]string
 	currentIndex int
 }
 
@@ -406,7 +487,6 @@ func NewMinIO() (*MinIO, error) {
 	var aliases = make(map[string]string)
 	var clients = make(map[string]*minio.Client)
 	var tokens = make(map[string]string)
-	var keys = make(map[string]map[string]string)
 
 	for _, line := range config {
 		var secure bool
@@ -427,10 +507,6 @@ func NewMinIO() (*MinIO, error) {
 
 		if base64Err != nil {
 			return nil, err
-		}
-		keys[line.Site] = map[string]string{
-			"access_key": line.AccessKey,
-			"secret_key": line.SecretKey,
 		}
 
 		aliases[line.Site] = line.Alias
@@ -456,6 +532,5 @@ func NewMinIO() (*MinIO, error) {
 		aliases:      aliases,
 		tokens:       tokens,
 		clients:      clients,
-		keys:         keys,
 	}, nil
 }

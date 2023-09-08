@@ -15,7 +15,7 @@ func main() {
 		fmt.Println("Something happened when creating the instance!")
 		return
 	}
-	gin.SetMode(gin.ReleaseMode)
+	//gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.MaxMultipartMemory = 100 << 20
 	r.POST("/add_instance", func(c *gin.Context) {
@@ -36,6 +36,20 @@ func main() {
 					"message": "Added instance successfully!",
 				})
 			}
+		}
+	})
+
+	r.GET("/get_tags", func(c *gin.Context) {
+		path, okPath := c.GetQuery("path")
+		if !okPath {
+			c.JSON(400, gin.H{
+				"message": "Body is not correct!",
+			})
+		} else {
+			data, _ := minio.getDatasetTags(path)
+			c.JSON(200, gin.H{
+				"message": data,
+			})
 		}
 	})
 
@@ -75,6 +89,44 @@ func main() {
 				})
 			} else {
 				c.JSON(200, searchByTagsOutput)
+			}
+		}
+	})
+
+	r.POST("/search_by_content_type", func(c *gin.Context) {
+		var contentType ContentType
+		searchByContentTypeErr := c.BindJSON(&contentType)
+		if searchByContentTypeErr != nil {
+			c.JSON(400, gin.H{
+				"message": "Body is not correct!",
+			})
+		} else {
+			searchByContentTypeOutput, searchByContentTypeErr := minio.searchByContentType(contentType.Content)
+			if searchByContentTypeErr != nil {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByContentTypeErr.Error()),
+				})
+			} else {
+				c.JSON(200, searchByContentTypeOutput)
+			}
+		}
+	})
+
+	r.POST("/search_by_extension", func(c *gin.Context) {
+		var extension Extension
+		searchByExtensionErr := c.BindJSON(&extension)
+		if searchByExtensionErr != nil {
+			c.JSON(400, gin.H{
+				"message": "Body is not correct!",
+			})
+		} else {
+			searchByExtensionOutput, searchByExtensionErr := minio.searchByExtension(extension.Extension)
+			if searchByExtensionErr != nil {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByExtensionErr.Error()),
+				})
+			} else {
+				c.JSON(200, searchByExtensionOutput)
 			}
 		}
 	})
@@ -168,6 +220,10 @@ func main() {
 		if err != nil {
 			c.JSON(500, gin.H{
 				"message": "Something happened when trying to upload the file!",
+			})
+		} else {
+			c.JSON(201, gin.H{
+				"message": "File uploaded successfully!",
 			})
 		}
 	})
