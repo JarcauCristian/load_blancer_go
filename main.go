@@ -15,9 +15,51 @@ func main() {
 		fmt.Println("Something happened when creating the instance!")
 		return
 	}
-	//gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.MaxMultipartMemory = 100 << 20
+
+	r.GET("/get_all_objects", func(c *gin.Context) {
+		extension, okExtension := c.GetQuery("extension")
+		if !okExtension {
+			c.JSON(400, gin.H{
+				"message": "Parameter extension is required!",
+			})
+		} else {
+			data, err := minio.getAllObjects(extension)
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("An error occurred when fetching all objects: %s", err.Error()),
+				})
+			} else {
+				c.JSON(200, gin.H{
+					"message": data,
+				})
+			}
+		}
+	})
+
+	r.POST("/get_objects", func(c *gin.Context) {
+		var datasetPath Path
+		err := c.BindJSON(&datasetPath)
+		if err != nil {
+			c.JSON(400, gin.H{
+				"message": "Body is not correct!",
+			})
+		} else {
+			data, err := getObject(datasetPath.DatasetPath)
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": fmt.Sprintf("An error occurred when fetching all objects: %s", err.Error()),
+				})
+			} else {
+				c.JSON(200, gin.H{
+					"shareURL": data,
+				})
+			}
+		}
+	})
+
 	r.POST("/add_instance", func(c *gin.Context) {
 		var instance InstanceModel
 		addInstanceErr := c.BindJSON(&instance)
@@ -36,20 +78,6 @@ func main() {
 					"message": "Added instance successfully!",
 				})
 			}
-		}
-	})
-
-	r.GET("/get_tags", func(c *gin.Context) {
-		path, okPath := c.GetQuery("path")
-		if !okPath {
-			c.JSON(400, gin.H{
-				"message": "Body is not correct!",
-			})
-		} else {
-			data, _ := minio.getDatasetTags(path)
-			c.JSON(200, gin.H{
-				"message": data,
-			})
 		}
 	})
 

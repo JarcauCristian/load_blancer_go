@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -291,7 +292,7 @@ func (minioInstance *MinIO) searchByExtension(extension string) ([]map[string][]
 	return findings, nil
 }
 
-func (minioInstance *MinIO) getDatasetTags(datasetPath string) ([]string, error) {
+func (minioInstance *MinIO) getDatasetTags(datasetPath string) (map[string]string, error) {
 	var mp map[string]interface{}
 
 	cmdArgs := []string{"./mc.exe", "tag", "list", datasetPath, "--json"}
@@ -311,18 +312,58 @@ func (minioInstance *MinIO) getDatasetTags(datasetPath string) ([]string, error)
 		return nil, err
 	}
 
+	var tags = make(map[string]string)
 	if mp["status"].(string) == "success" {
 		switch v := mp["tagset"].(type) {
 		case map[string]interface{}:
-			for s, b := range v {
-				fmt.Printf("%s: book=%s\n", s, b)
+			for tagName, tagValue := range v {
+				tags[tagName] = tagValue.(string)
 			}
 		default:
-			fmt.Println("Something else")
+			return nil, errors.New("not none type")
+		}
+	} else {
+		return nil, errors.New("tags does not exist for this object")
+	}
+
+	return tags, nil
+}
+
+func (minioInstance *MinIO) getAllObjects(extension string) (map[string]map[string]string, error) {
+	if extension == "" {
+		extension = "csv"
+	}
+
+	findings, err := minioInstance.searchByExtension(extension)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+
+	var objectWithTags = make(map[string]map[string]string, len(findings))
+	for _, value := range findings {
+		for k, v := range value {
+			index := 0
+			wg.Add(len(v))
+			for _, datasetPath := range v {
+				go func(datasetPath string) {
+					defer wg.Done()
+					result, err := minioInstance.getDatasetTags(datasetPath)
+					if err == nil && len(result) > 0 && result != nil {
+						fmt.Println(datasetPath, result, objectWithTags)
+						objectWithTags[fmt.Sprintf("%s:%s", k, datasetPath)] = result
+						index++
+					}
+				}(datasetPath)
+			}
 		}
 	}
 
-	return []string{}, nil
+	wg.Wait()
+
+	return objectWithTags, nil
 }
 
 func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {
