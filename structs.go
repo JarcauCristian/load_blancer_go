@@ -17,6 +17,14 @@ type TagsModel struct {
 	Tags map[string]string `json:"tags" binding:"required"`
 }
 
+type ContentType struct {
+	Content string `json:"content_type" binding:"required"`
+}
+
+type Extension struct {
+	Extension string `json:"extension" binding:"required"`
+}
+
 type Config struct {
 	Site      string `json:"site"`
 	Token     string `json:"token"`

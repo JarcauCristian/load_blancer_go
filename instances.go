@@ -227,7 +227,105 @@ func (minioInstance *MinIO) searchByTags(tags TagsModel) ([]map[string][]string,
 	return findings, nil
 }
 
-func (minioInstance MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {
+func (minioInstance *MinIO) searchByContentType(contentType string) ([]map[string][]string, error) {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	healthyInstancesLength := len(healthyInstances)
+	var findings = make([]map[string][]string, healthyInstancesLength)
+	index := 0
+
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+		go func(alias []string, contentType string) {
+			defer wg.Done()
+			finding, err := searchContentType(alias, contentType)
+			if err != nil {
+				fmt.Println("An error occurred!")
+			} else {
+				findings[index] = finding
+				index++
+			}
+		}(alias, contentType)
+
+	}
+
+	wg.Wait()
+
+	return findings, nil
+}
+
+func (minioInstance *MinIO) searchByExtension(extension string) ([]map[string][]string, error) {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	healthyInstancesLength := len(healthyInstances)
+	var findings = make([]map[string][]string, healthyInstancesLength)
+	index := 0
+
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+		go func(alias []string, extension string) {
+			defer wg.Done()
+			finding, err := searchExtension(alias, extension)
+			if err != nil {
+				fmt.Println("An error occurred!")
+			} else {
+				findings[index] = finding
+				index++
+			}
+		}(alias, extension)
+
+	}
+
+	wg.Wait()
+
+	return findings, nil
+}
+
+func (minioInstance *MinIO) getDatasetTags(datasetPath string) ([]string, error) {
+	var mp map[string]interface{}
+
+	cmdArgs := []string{"./mc.exe", "tag", "list", datasetPath, "--json"}
+
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(stdout.Bytes(), &mp)
+	if err != nil {
+		return nil, err
+	}
+
+	if mp["status"].(string) == "success" {
+		switch v := mp["tagset"].(type) {
+		case map[string]interface{}:
+			for s, b := range v {
+				fmt.Printf("%s: book=%s\n", s, b)
+			}
+		default:
+			fmt.Println("Something else")
+		}
+	}
+
+	return []string{}, nil
+}
+
+func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return err
@@ -294,7 +392,7 @@ func (minioInstance MinIO) putObject(content []byte, fileName string, tags map[s
 	return nil
 }
 
-func (minioInstance MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string) error {
+func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string) error {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return err
