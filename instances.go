@@ -329,7 +329,7 @@ func (minioInstance *MinIO) getDatasetTags(datasetPath string) (map[string]strin
 	return tags, nil
 }
 
-func (minioInstance *MinIO) getAllObjects(extension string) (map[string]map[string]string, error) {
+func (minioInstance *MinIO) getAllObjects(extension string) ([]map[string]map[string]string, error) {
 	if extension == "" {
 		extension = "csv"
 	}
@@ -340,30 +340,30 @@ func (minioInstance *MinIO) getAllObjects(extension string) (map[string]map[stri
 		return nil, err
 	}
 
-	var wg sync.WaitGroup
-
-	var objectWithTags = make(map[string]map[string]string, len(findings))
+	var finalResult []map[string]map[string]string
 	for _, value := range findings {
+		var wg sync.WaitGroup
 		for k, v := range value {
-			index := 0
+			var objectWithTags []map[string]map[string]string
 			wg.Add(len(v))
 			for _, datasetPath := range v {
-				go func(datasetPath string) {
+				go func(path string, key string) {
 					defer wg.Done()
-					result, err := minioInstance.getDatasetTags(datasetPath)
+					result, err := minioInstance.getDatasetTags(path)
 					if err == nil && len(result) > 0 && result != nil {
-						fmt.Println(datasetPath, result, objectWithTags)
-						objectWithTags[fmt.Sprintf("%s:%s", k, datasetPath)] = result
-						index++
+						objectWithTags = append(objectWithTags, map[string]map[string]string{fmt.Sprintf("%s#%s", key, path): result})
 					}
-				}(datasetPath)
+
+				}(datasetPath, k)
+			}
+			wg.Wait()
+			if len(objectWithTags) > 0 && objectWithTags != nil {
+				finalResult = append(finalResult, objectWithTags...)
 			}
 		}
 	}
+	return finalResult, nil
 
-	wg.Wait()
-
-	return objectWithTags, nil
 }
 
 func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {

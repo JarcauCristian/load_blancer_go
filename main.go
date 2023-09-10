@@ -3,9 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 	"io"
 	"mime/multipart"
+	"strings"
+	"time"
 )
 
 func main() {
@@ -19,27 +23,58 @@ func main() {
 	r := gin.Default()
 	r.MaxMultipartMemory = 100 << 20
 
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:3000"}
+	config.AllowHeaders = []string{"Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+
+	r.Use(cors.New(config))
+
 	r.GET("/get_all_objects", func(c *gin.Context) {
 		extension, okExtension := c.GetQuery("extension")
-		if !okExtension {
+
+		authorization := c.Request.Header["Authorization"]
+
+		if len(authorization) == 0 {
 			c.JSON(400, gin.H{
-				"message": "Parameter extension is required!",
+				"message": "You need to pass the authorization header!",
 			})
 		} else {
-			data, err := minio.getAllObjects(extension)
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": fmt.Sprintf("An error occurred when fetching all objects: %s", err.Error()),
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
 				})
 			} else {
-				c.JSON(200, gin.H{
-					"message": data,
-				})
+				if !okExtension {
+					c.JSON(400, gin.H{
+						"message": "Parameter extension is required!",
+					})
+				} else {
+					data, err := minio.getAllObjects(extension)
+					if err != nil {
+						c.JSON(500, gin.H{
+							"message": fmt.Sprintf("An error occurred when fetching all objects: %s", err.Error()),
+						})
+					} else {
+						c.JSON(200, data)
+					}
+				}
 			}
 		}
 	})
 
 	r.POST("/get_objects", func(c *gin.Context) {
+
 		var datasetPath Path
 		err := c.BindJSON(&datasetPath)
 		if err != nil {
@@ -61,6 +96,7 @@ func main() {
 	})
 
 	r.POST("/add_instance", func(c *gin.Context) {
+
 		var instance InstanceModel
 		addInstanceErr := c.BindJSON(&instance)
 		if addInstanceErr != nil {
@@ -82,6 +118,7 @@ func main() {
 	})
 
 	r.POST("/add_instances", func(c *gin.Context) {
+
 		var servers ServersModel
 		addInstancesErr := c.BindJSON(&servers)
 		if addInstancesErr != nil {
@@ -103,6 +140,7 @@ func main() {
 	})
 
 	r.POST("/search_by_tags", func(c *gin.Context) {
+
 		var tags TagsModel
 		searchByTagsErr := c.BindJSON(&tags)
 		if searchByTagsErr != nil {
@@ -122,6 +160,7 @@ func main() {
 	})
 
 	r.POST("/search_by_content_type", func(c *gin.Context) {
+
 		var contentType ContentType
 		searchByContentTypeErr := c.BindJSON(&contentType)
 		if searchByContentTypeErr != nil {
@@ -141,6 +180,7 @@ func main() {
 	})
 
 	r.POST("/search_by_extension", func(c *gin.Context) {
+
 		var extension Extension
 		searchByExtensionErr := c.BindJSON(&extension)
 		if searchByExtensionErr != nil {
@@ -258,4 +298,25 @@ func main() {
 	if err != nil {
 		return
 	}
+}
+
+func verifyToken(tokenString string) bool {
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	claims, ok := token.Claims.(jwt.MapClaims)
+
+	if err != nil || !ok {
+		fmt.Println("Getting error!")
+		return false
+	}
+
+	exp, ok := claims["exp"].(float64)
+
+	if !ok {
+		fmt.Println("Exp not found")
+		return false
+	}
+
+	expirationTime := time.Unix(int64(exp), 0)
+	currentTime := time.Now()
+	return currentTime.Before(expirationTime)
 }
