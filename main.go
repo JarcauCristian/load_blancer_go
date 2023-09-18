@@ -74,23 +74,47 @@ func main() {
 	})
 
 	r.POST("/get_objects", func(c *gin.Context) {
+		authorization := c.Request.Header["Authorization"]
 
-		var datasetPath Path
-		err := c.BindJSON(&datasetPath)
-		if err != nil {
+		if len(authorization) == 0 {
 			c.JSON(400, gin.H{
-				"message": "Body is not correct!",
+				"message": "You need to pass the authorization header!",
 			})
 		} else {
-			data, err := getObject(datasetPath.DatasetPath)
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": fmt.Sprintf("An error occurred when fetching all objects: %s", err.Error()),
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
 				})
 			} else {
-				c.JSON(200, gin.H{
-					"shareURL": data,
-				})
+
+				var datasetPath Path
+				err := c.BindJSON(&datasetPath)
+				if err != nil {
+					c.JSON(400, gin.H{
+						"message": "Body is not correct!",
+					})
+				} else {
+					data, err := getObject(datasetPath.DatasetPath)
+					if err != nil {
+						c.JSON(500, gin.H{
+							"message": fmt.Sprintf("An error occurred when fetching all objects: %s", err.Error()),
+						})
+					} else {
+						c.JSON(200, gin.H{
+							"shareURL": data,
+						})
+					}
+				}
 			}
 		}
 	})
@@ -140,157 +164,280 @@ func main() {
 	})
 
 	r.POST("/search_by_tags", func(c *gin.Context) {
+		authorization := c.Request.Header["Authorization"]
 
-		var tags TagsModel
-		searchByTagsErr := c.BindJSON(&tags)
-		if searchByTagsErr != nil {
+		if len(authorization) == 0 {
 			c.JSON(400, gin.H{
-				"message": "Body is not correct!",
+				"message": "You need to pass the authorization header!",
 			})
 		} else {
-			searchByTagsOutput, searchByTagsErr := minio.searchByTags(tags)
-			if searchByTagsErr != nil {
-				c.JSON(500, gin.H{
-					"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByTagsErr.Error()),
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
 				})
 			} else {
-				c.JSON(200, searchByTagsOutput)
+
+				var tags TagsModel
+				searchByTagsErr := c.BindJSON(&tags)
+				if searchByTagsErr != nil {
+					c.JSON(400, gin.H{
+						"message": "Body is not correct!",
+					})
+				} else {
+					searchByTagsOutput, searchByTagsErr := minio.searchByTags(tags)
+					if searchByTagsErr != nil {
+						c.JSON(500, gin.H{
+							"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByTagsErr.Error()),
+						})
+					} else {
+						c.JSON(200, searchByTagsOutput)
+					}
+				}
 			}
 		}
 	})
 
 	r.POST("/search_by_content_type", func(c *gin.Context) {
 
-		var contentType ContentType
-		searchByContentTypeErr := c.BindJSON(&contentType)
-		if searchByContentTypeErr != nil {
+		authorization := c.Request.Header["Authorization"]
+
+		if len(authorization) == 0 {
 			c.JSON(400, gin.H{
-				"message": "Body is not correct!",
+				"message": "You need to pass the authorization header!",
 			})
 		} else {
-			searchByContentTypeOutput, searchByContentTypeErr := minio.searchByContentType(contentType.Content)
-			if searchByContentTypeErr != nil {
-				c.JSON(500, gin.H{
-					"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByContentTypeErr.Error()),
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
 				})
 			} else {
-				c.JSON(200, searchByContentTypeOutput)
+
+				var contentType ContentType
+				searchByContentTypeErr := c.BindJSON(&contentType)
+				if searchByContentTypeErr != nil {
+					c.JSON(400, gin.H{
+						"message": "Body is not correct!",
+					})
+				} else {
+					searchByContentTypeOutput, searchByContentTypeErr := minio.searchByContentType(contentType.Content)
+					if searchByContentTypeErr != nil {
+						c.JSON(500, gin.H{
+							"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByContentTypeErr.Error()),
+						})
+					} else {
+						c.JSON(200, searchByContentTypeOutput)
+					}
+				}
 			}
 		}
 	})
 
 	r.POST("/search_by_extension", func(c *gin.Context) {
 
-		var extension Extension
-		searchByExtensionErr := c.BindJSON(&extension)
-		if searchByExtensionErr != nil {
+		authorization := c.Request.Header["Authorization"]
+
+		if len(authorization) == 0 {
 			c.JSON(400, gin.H{
-				"message": "Body is not correct!",
+				"message": "You need to pass the authorization header!",
 			})
 		} else {
-			searchByExtensionOutput, searchByExtensionErr := minio.searchByExtension(extension.Extension)
-			if searchByExtensionErr != nil {
-				c.JSON(500, gin.H{
-					"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByExtensionErr.Error()),
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
 				})
 			} else {
-				c.JSON(200, searchByExtensionOutput)
+
+				var extension Extension
+				searchByExtensionErr := c.BindJSON(&extension)
+				if searchByExtensionErr != nil {
+					c.JSON(400, gin.H{
+						"message": "Body is not correct!",
+					})
+				} else {
+					searchByExtensionOutput, searchByExtensionErr := minio.searchByExtension(extension.Extension)
+					if searchByExtensionErr != nil {
+						c.JSON(500, gin.H{
+							"message": fmt.Sprintf("Something happened when trying to add the instance!%s", searchByExtensionErr.Error()),
+						})
+					} else {
+						c.JSON(200, searchByExtensionOutput)
+					}
+				}
 			}
 		}
 	})
 
 	r.PUT("/put_object", func(c *gin.Context) {
+		authorization := c.Request.Header["Authorization"]
 
-		file, okFile := c.GetPostForm("file")
-		fileName, okFileName := c.GetPostForm("file_name")
-		tags, okTags := c.GetPostForm("tags")
-
-		var mapTags map[string]interface{}
-
-		if !okFile && !okFileName && !okTags {
+		if len(authorization) == 0 {
 			c.JSON(400, gin.H{
-				"message": "Format is incorrect!",
+				"message": "You need to pass the authorization header!",
 			})
 		} else {
-			err := json.Unmarshal([]byte(tags), &mapTags)
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": "Something happened when unmarshalling!",
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			} else {
+
+				file, okFile := c.GetPostForm("file")
+				fileName, okFileName := c.GetPostForm("file_name")
+				tags, okTags := c.GetPostForm("tags")
+
+				var mapTags map[string]interface{}
+
+				if !okFile && !okFileName && !okTags {
+					c.JSON(400, gin.H{
+						"message": "Format is incorrect!",
+					})
+				} else {
+					err := json.Unmarshal([]byte(tags), &mapTags)
+					if err != nil {
+						c.JSON(500, gin.H{
+							"message": "Something happened when unmarshalling!",
+						})
+					}
+				}
+				content := []byte(file)
+				contentSize := float64(len(content))
+				err := minio.putObject(content, fileName, mapTags, contentSize)
+
+				if err != nil {
+					c.JSON(500, gin.H{
+						"message": "Something happened when trying to upload the object!",
+					})
+				}
+
+				c.JSON(201, gin.H{
+					"message": "Upload object successfully!",
 				})
 			}
 		}
-		content := []byte(file)
-		contentSize := float64(len(content))
-		err := minio.putObject(content, fileName, mapTags, contentSize)
-
-		if err != nil {
-			c.JSON(500, gin.H{
-				"message": "Something happened when trying to upload the object!",
-			})
-		}
-
-		c.JSON(201, gin.H{
-			"message": "Upload object successfully!",
-		})
 	})
 
 	r.PUT("/upload", func(c *gin.Context) {
 
-		var uploadModel UploadModel
+		authorization := c.Request.Header["Authorization"]
 
-		if err := c.ShouldBind(&uploadModel); err != nil {
+		if len(authorization) == 0 {
 			c.JSON(400, gin.H{
-				"message": "Format is incorrect!",
-			})
-		}
-		file, err := c.FormFile("file")
-		if err != nil {
-			c.JSON(400, gin.H{
-				"message": "File is missing!",
-			})
-		}
-
-		tags := uploadModel.Tags
-
-		var mapTags map[string]string
-
-		err = json.Unmarshal([]byte(tags), &mapTags)
-
-		if err != nil {
-			c.JSON(400, gin.H{
-				"message": "Tags are not in the right format!",
-			})
-		}
-
-		fileSize := file.Size
-
-		content, err := file.Open()
-		defer func(content multipart.File) {
-			err := content.Close()
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": "Error closing the file!",
-				})
-			}
-		}(content)
-
-		if err != nil {
-			c.JSON(400, gin.H{
-				"message": "File is empty!",
-			})
-		}
-		reader := io.Reader(content)
-
-		err = minio.uploadFile(reader, mapTags, float64(fileSize), file.Filename)
-
-		if err != nil {
-			c.JSON(500, gin.H{
-				"message": "Something happened when trying to upload the file!",
+				"message": "You need to pass the authorization header!",
 			})
 		} else {
-			c.JSON(201, gin.H{
-				"message": "File uploaded successfully!",
-			})
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			} else {
+
+				var uploadModel UploadModel
+
+				if err := c.ShouldBind(&uploadModel); err != nil {
+					c.JSON(400, gin.H{
+						"message": "Format is incorrect!",
+					})
+				}
+				file, err := c.FormFile("file")
+				if err != nil {
+					c.JSON(400, gin.H{
+						"message": "File is missing!",
+					})
+				}
+
+				tags := uploadModel.Tags
+
+				var mapTags map[string]string
+
+				err = json.Unmarshal([]byte(tags), &mapTags)
+
+				if err != nil {
+					c.JSON(400, gin.H{
+						"message": "Tags are not in the right format!",
+					})
+				}
+
+				fileSize := file.Size
+
+				content, err := file.Open()
+				defer func(content multipart.File) {
+					err := content.Close()
+					if err != nil {
+						c.JSON(500, gin.H{
+							"message": "Error closing the file!",
+						})
+					}
+				}(content)
+
+				if err != nil {
+					c.JSON(400, gin.H{
+						"message": "File is empty!",
+					})
+				}
+				reader := io.Reader(content)
+
+				err = minio.uploadFile(reader, mapTags, float64(fileSize), file.Filename)
+
+				if err != nil {
+					c.JSON(500, gin.H{
+						"message": "Something happened when trying to upload the file!",
+					})
+				} else {
+					c.JSON(201, gin.H{
+						"message": "File uploaded successfully!",
+					})
+				}
+			}
 		}
 	})
 
