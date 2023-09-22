@@ -25,6 +25,10 @@ type Extension struct {
 	Extension string `json:"extension" binding:"required"`
 }
 
+type Path struct {
+	DatasetPath string `json:"dataset_path" binding:"required"`
+}
+
 type Config struct {
 	Site      string `json:"site"`
 	Token     string `json:"token"`

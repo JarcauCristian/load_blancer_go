@@ -116,6 +116,29 @@ func searchExtension(alias []string, extension string) (map[string][]string, err
 	return map[string][]string{alias[0]: findings}, nil
 }
 
+func getObject(datasetPath string) (string, error) {
+	cmdArgs := []string{"./mc.exe", "share", "download", "-E 10m", "--json", datasetPath}
+
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	var mp map[string]interface{}
+	err = json.Unmarshal(stdout.Bytes(), &mp)
+
+	if err != nil {
+		return "", err
+	}
+
+	return mp["share"].(string), nil
+}
+
 func getTotalBytes(alias []string, token string, fileSize float64) (float64, error) {
 
 	fullUrl := alias[0] + "/minio/v2/metrics/cluster"
