@@ -1,9 +1,13 @@
 package main
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime/multipart"
 	"strings"
 	"time"
@@ -25,7 +29,7 @@ func main() {
 	r.MaxMultipartMemory = 100 << 20
 
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000"}
+	config.AllowOrigins = []string{"https://localhost:3000"}
 	config.AllowHeaders = []string{"Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 
@@ -367,7 +371,6 @@ func main() {
 			})
 		} else {
 			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
-
 			if tokenString == "" {
 				c.JSON(401, gin.H{
 					"message": "You are unauthorized!",
@@ -382,13 +385,13 @@ func main() {
 				})
 			} else {
 
-				var uploadModel UploadModel
-
-				if err := c.ShouldBind(&uploadModel); err != nil {
-					c.JSON(400, gin.H{
-						"message": "Format is incorrect!",
-					})
-				}
+				//var uploadModel UploadModel
+				//
+				//if err := c.ShouldBind(&uploadModel); err != nil {
+				//	c.JSON(400, gin.H{
+				//		"message": "Format is incorrect!",
+				//	})
+				//}
 				file, err := c.FormFile("file")
 				if err != nil {
 					c.JSON(400, gin.H{
@@ -396,19 +399,20 @@ func main() {
 					})
 				}
 
-				tags := uploadModel.Tags
-
-				var mapTags map[string]string
-
-				err = json.Unmarshal([]byte(tags), &mapTags)
-
-				if err != nil {
-					c.JSON(400, gin.H{
-						"message": "Tags are not in the right format!",
-					})
-				}
+				//tags := uploadModel.Tags
+				//
+				//var mapTags map[string]string
+				//
+				//err = json.Unmarshal([]byte(tags), &mapTags)
+				//
+				//if err != nil {
+				//	c.JSON(400, gin.H{
+				//		"message": "Tags are not in the right format!",
+				//	})
+				//}
 
 				fileSize := file.Size
+				contentType := file.Header["Content-Type"][0]
 
 				content, err := file.Open()
 				defer func(content multipart.File) {
@@ -426,8 +430,8 @@ func main() {
 					})
 				}
 				reader := io.Reader(content)
-
-				err = minio.uploadFile(reader, mapTags, float64(fileSize), file.Filename)
+				mapTags := map[string]string{}
+				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), file.Filename, contentType)
 
 				if err != nil {
 					c.JSON(500, gin.H{
@@ -435,7 +439,7 @@ func main() {
 					})
 				} else {
 					c.JSON(201, gin.H{
-						"message": "File uploaded successfully!",
+						"message": result,
 					})
 				}
 			}
@@ -449,22 +453,57 @@ func main() {
 }
 
 func verifyToken(tokenString string) bool {
-	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
-	claims, ok := token.Claims.(jwt.MapClaims)
+	publicKeyPath := "./public_key.pem"
 
-	if err != nil || !ok {
-		fmt.Println("Getting error!")
+	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
+	if err != nil {
+		fmt.Println("Error reading public key:", err)
 		return false
 	}
 
-	exp, ok := claims["exp"].(float64)
-
-	if !ok {
-		fmt.Println("Exp not found")
+	// Parse the RSA public key
+	publicKeyBlock, _ := pem.Decode(publicKeyBytes)
+	if publicKeyBlock == nil {
+		fmt.Println("Error decoding public key")
 		return false
 	}
 
-	expirationTime := time.Unix(int64(exp), 0)
-	currentTime := time.Now()
-	return currentTime.Before(expirationTime)
+	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
+	if err != nil {
+		fmt.Println("Error parsing public key:", err)
+		return false
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return publicKey.(*rsa.PublicKey), nil
+	})
+
+	if err != nil {
+		fmt.Println("JWT parsing error:", err)
+		return false
+	}
+
+	if token.Valid {
+		claims, ok := token.Claims.(jwt.MapClaims)
+
+		if err != nil || !ok {
+			fmt.Println("Getting error!")
+			return false
+		}
+
+		exp, ok := claims["exp"].(float64)
+
+		if !ok {
+			fmt.Println("Exp not found")
+			return false
+		}
+
+		expirationTime := time.Unix(int64(exp), 0)
+		currentTime := time.Now()
+		return currentTime.Before(expirationTime)
+	}
+	return false
 }

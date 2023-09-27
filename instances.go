@@ -7,13 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 func (minioInstance *MinIO) addInstance(instance InstanceModel) error {
@@ -433,10 +435,10 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 	return nil
 }
 
-func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string) error {
+func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string) (map[string]string, error) {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var wg sync.WaitGroup
@@ -462,7 +464,6 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	}
 
 	wg.Wait()
-	fmt.Println(spaces)
 	maxim := 0.0
 	var targetSite string
 	for _, space := range spaces {
@@ -482,16 +483,16 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		int64(fileSize),
 		minio.PutObjectOptions{
 			UserTags:    tags,
-			ContentType: "application/json",
+			ContentType: contentType,
 		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Println(object.Bucket, object.Size, object.Location)
+	result := map[string]string{"location": targetSite + "/" + object.Bucket + "/" + fileName, "size": strconv.Itoa(int(object.Size))}
 
-	return nil
+	return result, nil
 }
 
 type MinIO struct {
@@ -537,7 +538,7 @@ func NewMinIO() (*MinIO, error) {
 			secure = false
 		}
 		splits := strings.Split(line.Site, ":")
-		endpoint := splits[1][2:] + ":" + splits[2]
+		endpoint := splits[1][2:]
 		accessKey, base64Err := base64.StdEncoding.DecodeString(line.AccessKey)
 
 		if base64Err != nil {
