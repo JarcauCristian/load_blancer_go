@@ -1,20 +1,14 @@
 package main
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"mime/multipart"
-	"strings"
-	"time"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"strings"
 )
 
 func main() {
@@ -453,57 +447,15 @@ func main() {
 }
 
 func verifyToken(tokenString string) bool {
-	publicKeyPath := "./public_key.pem"
-
-	publicKeyBytes, err := ioutil.ReadFile(publicKeyPath)
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", "http://localhost:8080/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
+	response, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error reading public key:", err)
 		return false
 	}
-
-	// Parse the RSA public key
-	publicKeyBlock, _ := pem.Decode(publicKeyBytes)
-	if publicKeyBlock == nil {
-		fmt.Println("Error decoding public key")
+	if response.StatusCode != 200 {
 		return false
 	}
-
-	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
-	if err != nil {
-		fmt.Println("Error parsing public key:", err)
-		return false
-	}
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-		return publicKey.(*rsa.PublicKey), nil
-	})
-
-	if err != nil {
-		fmt.Println("JWT parsing error:", err)
-		return false
-	}
-
-	if token.Valid {
-		claims, ok := token.Claims.(jwt.MapClaims)
-
-		if err != nil || !ok {
-			fmt.Println("Getting error!")
-			return false
-		}
-
-		exp, ok := claims["exp"].(float64)
-
-		if !ok {
-			fmt.Println("Exp not found")
-			return false
-		}
-
-		expirationTime := time.Unix(int64(exp), 0)
-		currentTime := time.Now()
-		return currentTime.Before(expirationTime)
-	}
-	return false
+	return true
 }
