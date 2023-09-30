@@ -490,9 +490,38 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		return nil, err
 	}
 
-	result := map[string]string{"location": targetSite + "/" + object.Bucket + "/" + fileName, "size": strconv.Itoa(int(object.Size))}
+	result := map[string]string{"location": targetSite + "=" + object.Bucket + "=" + fileName, "size": strconv.Itoa(int(object.Size))}
 
 	return result, nil
+}
+
+func (minioInstance *MinIO) getObject(url string, datasetPath string) (string, error) {
+	path := fmt.Sprintf("%s/%s", minioInstance.aliases[url], datasetPath)
+	cmdArgs := []string{"./mc.exe", "share", "download", "--expire", "10m", "--json", path}
+
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Here")
+		return "", err
+	}
+
+	var data map[string]interface{}
+	err = json.Unmarshal(stdout.Bytes(), &data)
+
+	if err != nil {
+		return "", err
+	}
+
+	if data["status"].(string) != "success" {
+		return "", errors.New("could not get download link for the object")
+	}
+
+	return data["share"].(string), nil
 }
 
 type MinIO struct {

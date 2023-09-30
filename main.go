@@ -296,6 +296,31 @@ func main() {
 		}
 	})
 
+	r.POST("/get_object", func(c *gin.Context) {
+
+		var object GetObject
+
+		bindingError := c.BindJSON(&object)
+
+		if bindingError != nil {
+			c.JSON(400, gin.H{
+				"message": "Body is incorrect!",
+			})
+		} else {
+			data, err := minio.getObject(object.Url, object.DatasetPath)
+
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Something went wrong when getting the token!",
+				})
+			} else {
+				c.JSON(200, gin.H{
+					"url": data,
+				})
+			}
+		}
+	})
+
 	r.PUT("/put_object", func(c *gin.Context) {
 		authorization := c.Request.Header["Authorization"]
 
@@ -378,14 +403,6 @@ func main() {
 					"message": "You are unauthorized!",
 				})
 			} else {
-
-				//var uploadModel UploadModel
-				//
-				//if err := c.ShouldBind(&uploadModel); err != nil {
-				//	c.JSON(400, gin.H{
-				//		"message": "Format is incorrect!",
-				//	})
-				//}
 				file, err := c.FormFile("file")
 				if err != nil {
 					c.JSON(400, gin.H{
@@ -393,17 +410,8 @@ func main() {
 					})
 				}
 
-				//tags := uploadModel.Tags
-				//
-				//var mapTags map[string]string
-				//
-				//err = json.Unmarshal([]byte(tags), &mapTags)
-				//
-				//if err != nil {
-				//	c.JSON(400, gin.H{
-				//		"message": "Tags are not in the right format!",
-				//	})
-				//}
+				tags, _ := c.GetPostForm("tags")
+				fmt.Println(tags)
 
 				fileSize := file.Size
 				contentType := file.Header["Content-Type"][0]

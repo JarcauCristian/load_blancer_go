@@ -37,6 +37,11 @@ type Config struct {
 	SecretKey string `json:"secret_key"`
 }
 
+type GetObject struct {
+	Url         string `json:"url"`
+	DatasetPath string `json:"dataset_path"`
+}
+
 type UploadModel struct {
 	Tags     string          `form:"tags" binding:"required"`
 	fileData *multipart.File `form:"file" binding:"required"`
