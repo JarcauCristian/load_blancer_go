@@ -421,9 +421,8 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 		bytes.NewReader(content),
 		-1,
 		minio.PutObjectOptions{
-			PartSize:    1024 * 1024 * 5,
-			UserTags:    newTags,
-			ContentType: "application/json",
+			PartSize: 1024 * 1024 * 5,
+			UserTags: newTags,
 		},
 	)
 	if err != nil {

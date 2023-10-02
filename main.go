@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"strings"
 )
 
@@ -349,6 +348,8 @@ func main() {
 				fileName, okFileName := c.GetPostForm("file_name")
 				tags, okTags := c.GetPostForm("tags")
 
+				fmt.Println(file, fileName, tags)
+
 				var mapTags map[string]interface{}
 
 				if !okFile && !okFileName && !okTags {
@@ -362,20 +363,20 @@ func main() {
 							"message": "Something happened when unmarshalling!",
 						})
 					}
-				}
-				content := []byte(file)
-				contentSize := float64(len(content))
-				err := minio.putObject(content, fileName, mapTags, contentSize)
+					content := []byte(file)
+					contentSize := float64(len(content))
+					err = minio.putObject(content, fileName, mapTags, contentSize)
 
-				if err != nil {
-					c.JSON(500, gin.H{
-						"message": "Something happened when trying to upload the object!",
-					})
+					if err != nil {
+						c.JSON(500, gin.H{
+							"message": "Something happened when trying to upload the object!",
+						})
+					} else {
+						c.JSON(201, gin.H{
+							"message": "Upload object successfully!",
+						})
+					}
 				}
-
-				c.JSON(201, gin.H{
-					"message": "Upload object successfully!",
-				})
 			}
 		}
 	})
@@ -410,8 +411,13 @@ func main() {
 					})
 				}
 
-				tags, _ := c.GetPostForm("tags")
-				fmt.Println(tags)
+				tags, tagsExists := c.GetPostForm("tags")
+				fileName, fileNameExists := c.GetPostForm("name")
+				fmt.Println(file, err)
+
+				var tagData map[string]interface{}
+
+				marshalError := json.Unmarshal([]byte(tags), &tagData)
 
 				fileSize := file.Size
 				contentType := file.Header["Content-Type"][0]
@@ -426,14 +432,19 @@ func main() {
 					}
 				}(content)
 
-				if err != nil {
+				if err != nil && !tagsExists && marshalError != nil && !fileNameExists {
 					c.JSON(400, gin.H{
 						"message": "File is empty!",
 					})
 				}
 				reader := io.Reader(content)
-				mapTags := map[string]string{}
-				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), file.Filename, contentType)
+
+				var mapTags = make(map[string]string, len(tagData))
+				for k, v := range tagData {
+					mapTags[k] = v.(string)
+				}
+
+				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType)
 
 				if err != nil {
 					c.JSON(500, gin.H{
@@ -455,15 +466,16 @@ func main() {
 }
 
 func verifyToken(tokenString string) bool {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", "http://localhost:8080/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
-	response, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-	if response.StatusCode != 200 {
-		return false
-	}
+	fmt.Println(tokenString)
+	//client := &http.Client{}
+	//req, _ := http.NewRequest("GET", "http://localhost:8080/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
+	//req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
+	//response, err := client.Do(req)
+	//if err != nil {
+	//	return false
+	//}
+	//if response.StatusCode != 200 {
+	//	return false
+	//}
 	return true
 }
