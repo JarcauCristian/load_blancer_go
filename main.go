@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"strings"
 )
 
@@ -348,8 +349,6 @@ func main() {
 				fileName, okFileName := c.GetPostForm("file_name")
 				tags, okTags := c.GetPostForm("tags")
 
-				fmt.Println(file, fileName, tags)
-
 				var mapTags map[string]interface{}
 
 				if !okFile && !okFileName && !okTags {
@@ -365,7 +364,7 @@ func main() {
 					}
 					content := []byte(file)
 					contentSize := float64(len(content))
-					err = minio.putObject(content, fileName, mapTags, contentSize)
+					location, err := minio.putObject(content, fileName, mapTags, contentSize)
 
 					if err != nil {
 						c.JSON(500, gin.H{
@@ -373,7 +372,7 @@ func main() {
 						})
 					} else {
 						c.JSON(201, gin.H{
-							"message": "Upload object successfully!",
+							"location": location,
 						})
 					}
 				}
@@ -413,7 +412,6 @@ func main() {
 
 				tags, tagsExists := c.GetPostForm("tags")
 				fileName, fileNameExists := c.GetPostForm("name")
-				fmt.Println(file, err)
 
 				var tagData map[string]interface{}
 
@@ -466,16 +464,15 @@ func main() {
 }
 
 func verifyToken(tokenString string) bool {
-	fmt.Println(tokenString)
-	//client := &http.Client{}
-	//req, _ := http.NewRequest("GET", "http://localhost:8080/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
-	//req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
-	//response, err := client.Do(req)
-	//if err != nil {
-	//	return false
-	//}
-	//if response.StatusCode != 200 {
-	//	return false
-	//}
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", "http://localhost:8080/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
+	response, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	if response.StatusCode != 200 {
+		return false
+	}
 	return true
 }

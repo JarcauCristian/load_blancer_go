@@ -368,10 +368,10 @@ func (minioInstance *MinIO) getAllObjects(extension string) ([]map[string]map[st
 
 }
 
-func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) error {
+func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) (string, error) {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var wg sync.WaitGroup
@@ -426,12 +426,12 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 		},
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	fmt.Println(object.Bucket, object.Size, object.Location)
 
-	return nil
+	return targetSite + "=" + object.Bucket + "=" + fileName, nil
 }
 
 func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string) (map[string]string, error) {
