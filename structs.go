@@ -38,7 +38,6 @@ type Config struct {
 }
 
 type GetObject struct {
-	Url         string `json:"url"`
 	DatasetPath string `json:"dataset_path"`
 }
 

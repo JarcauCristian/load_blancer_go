@@ -296,22 +296,21 @@ func main() {
 		}
 	})
 
-	r.POST("/get_object", func(c *gin.Context) {
+	r.GET("/get_object", func(c *gin.Context) {
 
-		var object GetObject
+		datasetPath, exists := c.GetQuery("dataset_path")
 
-		bindingError := c.BindJSON(&object)
-
-		if bindingError != nil {
+		if exists {
 			c.JSON(400, gin.H{
 				"message": "Body is incorrect!",
 			})
 		} else {
-			data, err := minio.getObject(object.Url, object.DatasetPath)
+			data, err := minio.findObject(datasetPath)
 
 			if err != nil {
+				fmt.Println(err)
 				c.JSON(500, gin.H{
-					"message": "Something went wrong when getting the token!",
+					"message": "Something went wrong when getting the object!",
 				})
 			} else {
 				c.JSON(200, gin.H{
@@ -339,7 +338,7 @@ func main() {
 
 			verification := verifyToken(tokenString)
 
-			if !verification {
+			if verification {
 				c.JSON(401, gin.H{
 					"message": "You are unauthorized!",
 				})
@@ -348,6 +347,9 @@ func main() {
 				file, okFile := c.GetPostForm("file")
 				fileName, okFileName := c.GetPostForm("file_name")
 				tags, okTags := c.GetPostForm("tags")
+				fmt.Println(file)
+				fmt.Println(fileName)
+				fmt.Println(tags)
 
 				var mapTags map[string]interface{}
 
@@ -424,6 +426,7 @@ func main() {
 				defer func(content multipart.File) {
 					err := content.Close()
 					if err != nil {
+						fmt.Println("Here")
 						c.JSON(500, gin.H{
 							"message": "Error closing the file!",
 						})
@@ -443,6 +446,7 @@ func main() {
 				}
 
 				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType)
+				fmt.Println(result)
 
 				if err != nil {
 					c.JSON(500, gin.H{
@@ -457,7 +461,7 @@ func main() {
 		}
 	})
 
-	err = r.Run(":8000")
+	err = r.Run(":9000")
 	if err != nil {
 		return
 	}

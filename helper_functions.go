@@ -14,7 +14,7 @@ import (
 )
 
 func getHealth(alias string) (string, error) {
-	cmdArgs := []string{"./mc.exe", "ping", alias, "--json", "--count", "1"}
+	cmdArgs := []string{"./mc", "ping", alias, "--json", "--count", "1"}
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -41,7 +41,7 @@ func getHealth(alias string) (string, error) {
 
 func searchTags(alias []string, tags map[string]string) (map[string][]string, error) {
 	findList := make([]string, len(tags))
-	cmdArgs := []string{"./mc.exe", "find", alias[1]}
+	cmdArgs := []string{"./mc", "find", alias[1]}
 	index := 0
 	for k, v := range tags {
 		findList[index] = fmt.Sprintf("--tags=%s=%s", k, v)
@@ -71,7 +71,7 @@ func searchTags(alias []string, tags map[string]string) (map[string][]string, er
 }
 
 func searchContentType(alias []string, contentType string) (map[string][]string, error) {
-	cmdArgs := []string{"./mc.exe", "find", alias[1], fmt.Sprintf("--metadata=Content-Type=%s", contentType)}
+	cmdArgs := []string{"./mc", "find", alias[1], fmt.Sprintf("--metadata=Content-Type=%s", contentType)}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer
@@ -94,7 +94,7 @@ func searchContentType(alias []string, contentType string) (map[string][]string,
 }
 
 func searchExtension(alias []string, extension string) (map[string][]string, error) {
-	cmdArgs := []string{"./mc.exe", "find", alias[1], fmt.Sprintf("--name=*.%s", extension)}
+	cmdArgs := []string{"./mc", "find", alias[1], fmt.Sprintf("--name=*.%s", extension)}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer
@@ -117,7 +117,7 @@ func searchExtension(alias []string, extension string) (map[string][]string, err
 }
 
 func getObject(datasetPath string) (string, error) {
-	cmdArgs := []string{"./mc.exe", "share", "download", "-E 10m", "--json", datasetPath}
+	cmdArgs := []string{"./mc", "share", "download", "-E 10m", "--json", datasetPath}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer
@@ -137,6 +137,31 @@ func getObject(datasetPath string) (string, error) {
 	}
 
 	return mp["share"].(string), nil
+}
+
+func search(alias []string, datasetPath string) (string, error) {
+	cmdArgs := []string{"./mc", "find", alias[1]}
+
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	scanner := bufio.NewScanner(&stdout)
+	for scanner.Scan() {
+		line := strings.Join(strings.Split(scanner.Text(), "/")[1:], "/")
+
+		if datasetPath == line {
+			return alias[0], nil
+		}
+	}
+
+	return "", nil
 }
 
 func getTotalBytes(alias []string, token string, fileSize float64) (float64, error) {

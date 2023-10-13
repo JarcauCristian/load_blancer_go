@@ -63,7 +63,7 @@ func (minioInstance *MinIO) addInstance(instance InstanceModel) error {
 	}
 	minioInstance.clients[instance.Url] = minioClient
 
-	cmd := exec.Command("./mc.exe", "alias", "set", alias, instance.Url, accessKey, secretKey)
+	cmd := exec.Command("./mc", "alias", "set", alias, instance.Url, accessKey, secretKey)
 	if err = cmd.Run(); err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func (minioInstance *MinIO) addInstances(servers ServersModel) error {
 		}
 		minioInstance.clients[server.Url] = minioClient
 
-		cmd := exec.Command("./mc.exe", "alias", "set", alias, server.Url, accessKey, secretKey)
+		cmd := exec.Command("./mc", "alias", "set", alias, server.Url, accessKey, secretKey)
 		if err = cmd.Run(); err != nil {
 			return err
 		}
@@ -196,6 +196,46 @@ func (minioInstance *MinIO) Healths() (map[string]string, error) {
 	wg.Wait()
 
 	return health, nil
+}
+
+func (minioInstance *MinIO) findObject(datasetPath string) (string, error) {
+	healthyInstances, err := minioInstance.Healths()
+
+	if err != nil {
+		return "", err
+	}
+
+	var findDataset string
+	var wg sync.WaitGroup
+
+	wg.Add(len(healthyInstances))
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+
+		go func(alias []string, datasetPath string) {
+			defer wg.Done()
+
+			finding, err := search(alias, datasetPath)
+
+			if err != nil {
+				fmt.Println("Is not present here!")
+			}
+
+			if finding != "" {
+				findDataset = finding
+			}
+		}(alias, datasetPath)
+	}
+
+	wg.Wait()
+
+	shareUrl, err := minioInstance.getObject(findDataset, datasetPath)
+
+	if err != nil {
+		return "", err
+	}
+
+	return shareUrl, nil
 }
 
 func (minioInstance *MinIO) searchByTags(tags TagsModel) ([]map[string][]string, error) {
@@ -297,7 +337,7 @@ func (minioInstance *MinIO) searchByExtension(extension string) ([]map[string][]
 func (minioInstance *MinIO) getDatasetTags(datasetPath string) (map[string]string, error) {
 	var mp map[string]interface{}
 
-	cmdArgs := []string{"./mc.exe", "tag", "list", datasetPath, "--json"}
+	cmdArgs := []string{"./mc", "tag", "list", datasetPath, "--json"}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer
@@ -473,7 +513,6 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 			}
 		}
 	}
-
 	object, err := minioInstance.clients[targetSite].PutObject(
 		context.Background(),
 		"dataspace",
@@ -496,7 +535,7 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 
 func (minioInstance *MinIO) getObject(url string, datasetPath string) (string, error) {
 	path := fmt.Sprintf("%s/%s", minioInstance.aliases[url], datasetPath)
-	cmdArgs := []string{"./mc.exe", "share", "download", "--expire", "10m", "--json", path}
+	cmdArgs := []string{"./mc", "share", "download", "--expire", "10m", "--json", path}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer
@@ -505,7 +544,6 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string) (string, e
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println("Here")
 		return "", err
 	}
 
@@ -515,6 +553,7 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string) (string, e
 	if err != nil {
 		return "", err
 	}
+	fmt.Println(data)
 
 	if data["status"].(string) != "success" {
 		return "", errors.New("could not get download link for the object")
@@ -591,7 +630,7 @@ func NewMinIO() (*MinIO, error) {
 		clients[line.Site] = minioClient
 		tokens[line.Site] = line.Token
 
-		cmd := exec.Command("./mc.exe", "alias", "set", line.Alias, line.Site, string(accessKey), string(secretKey))
+		cmd := exec.Command("./mc", "alias", "set", line.Alias, line.Site, string(accessKey), string(secretKey))
 		if err = cmd.Run(); err != nil {
 			return nil, err
 		}
