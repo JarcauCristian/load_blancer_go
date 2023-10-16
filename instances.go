@@ -528,7 +528,7 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		return nil, err
 	}
 
-	result := map[string]string{"location": targetSite + "=" + object.Bucket + "=" + fileName, "size": strconv.Itoa(int(object.Size))}
+	result := map[string]string{"location": object.Bucket + "/" + fileName, "size": strconv.Itoa(int(object.Size))}
 
 	return result, nil
 }

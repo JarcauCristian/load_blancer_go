@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -195,10 +196,16 @@ func getTotalBytes(alias []string, token string, fileSize float64) (float64, err
 
 	stringBody := string(body)
 	startIndex := strings.Index(stringBody, "minio_cluster_capacity_raw_free_bytes{server=\"127.0.0.1:9000\"}")
+	pattern := "[^0-9+e\\-\\.$]"
 
-	total, err := strconv.ParseFloat(stringBody[startIndex+63:startIndex+63+16], 64)
+	re := regexp.MustCompile(pattern)
+	processedInput := re.ReplaceAllString(stringBody[startIndex+63:startIndex+63+16], " ")
+	processedInput = strings.Replace(processedInput, " ", "", -1)
+
+	total, err := strconv.ParseFloat(processedInput, 64)
 
 	if err != nil {
+		fmt.Println(err)
 		return 0.0, err
 	}
 
