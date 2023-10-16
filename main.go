@@ -23,7 +23,7 @@ func main() {
 	r.MaxMultipartMemory = 100 << 20
 
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"https://localhost:3000"}
+	config.AllowOrigins = []string{"*"}
 	config.AllowHeaders = []string{"Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 
@@ -300,7 +300,7 @@ func main() {
 
 		datasetPath, exists := c.GetQuery("dataset_path")
 
-		if exists {
+		if !exists {
 			c.JSON(400, gin.H{
 				"message": "Body is incorrect!",
 			})
@@ -469,7 +469,7 @@ func main() {
 
 func verifyToken(tokenString string) bool {
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", "http://localhost:8080/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
+	req, _ := http.NewRequest("GET", "https://62.72.21.79:8442/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
 	response, err := client.Do(req)
 	if err != nil {
