@@ -409,9 +409,17 @@ func (minioInstance *MinIO) getAllObjects(extension string) ([]map[string]map[st
 }
 
 func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[string]interface{}, fileSize float64) (string, error) {
+	if minioInstance.robinIndex == minioInstance.currentIndex-1 {
+		minioInstance.robinIndex = 0
+	}
+
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return "", err
+	}
+
+	if strings.Contains(fileName, ".csv") {
+		fileName = strings.Replace(fileName, ".csv", "", 1)
 	}
 
 	var wg sync.WaitGroup
@@ -440,13 +448,37 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 
 	maxim := 0.0
 	var targetSite string
-	for _, space := range spaces {
-		for k, v := range space {
-			if v > maxim {
+	if len(spaces) == minioInstance.currentIndex-1 {
+		for k, v := range spaces[minioInstance.robinIndex] {
+			if v > 0 {
 				targetSite = k
-				maxim = v
+				minioInstance.robinIndex++
+			} else {
+				for i := minioInstance.robinIndex; i < len(spaces); i++ {
+					leftSpace := false
+					for k, v := range spaces[i] {
+						if v > 0 {
+							targetSite = k
+							minioInstance.robinIndex++
+							leftSpace = true
+						}
+					}
+					if leftSpace {
+						break
+					}
+				}
 			}
 		}
+	} else {
+		for _, space := range spaces {
+			for k, v := range space {
+				if v > maxim {
+					targetSite = k
+					maxim = v
+				}
+			}
+		}
+		minioInstance.robinIndex++
 	}
 
 	var newTags = make(map[string]string, len(tags))
@@ -475,9 +507,21 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 }
 
 func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string) (map[string]string, error) {
+	if minioInstance.robinIndex == minioInstance.currentIndex-1 {
+		minioInstance.robinIndex = 0
+	}
+
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return nil, err
+	}
+
+	if contentType == "text/csv" {
+		contentType = "application/octet-stream"
+	}
+
+	if strings.Contains(fileName, ".csv") {
+		fileName = strings.Replace(fileName, ".csv", "", 1)
 	}
 
 	var wg sync.WaitGroup
@@ -505,13 +549,38 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	wg.Wait()
 	maxim := 0.0
 	var targetSite string
-	for _, space := range spaces {
-		for k, v := range space {
-			if v > maxim {
+
+	if len(spaces) == minioInstance.currentIndex-1 {
+		for k, v := range spaces[minioInstance.robinIndex] {
+			if v > 0 {
 				targetSite = k
-				maxim = v
+				minioInstance.robinIndex++
+			} else {
+				for i := minioInstance.robinIndex; i < len(spaces); i++ {
+					leftSpace := false
+					for k, v := range spaces[i] {
+						if v > 0 {
+							targetSite = k
+							minioInstance.robinIndex++
+							leftSpace = true
+						}
+					}
+					if leftSpace {
+						break
+					}
+				}
 			}
 		}
+	} else {
+		for _, space := range spaces {
+			for k, v := range space {
+				if v > maxim {
+					targetSite = k
+					maxim = v
+				}
+			}
+		}
+		minioInstance.robinIndex++
 	}
 	object, err := minioInstance.clients[targetSite].PutObject(
 		context.Background(),
@@ -525,6 +594,7 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		},
 	)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 
@@ -567,6 +637,7 @@ type MinIO struct {
 	clients      map[string]*minio.Client
 	tokens       map[string]string
 	currentIndex int
+	robinIndex   int
 }
 
 func NewMinIO() (*MinIO, error) {
@@ -593,6 +664,7 @@ func NewMinIO() (*MinIO, error) {
 	}
 
 	currentIndex := len(config) + 1
+	robinIndex := 0
 	var aliases = make(map[string]string)
 	var clients = make(map[string]*minio.Client)
 	var tokens = make(map[string]string)
@@ -641,5 +713,6 @@ func NewMinIO() (*MinIO, error) {
 		aliases:      aliases,
 		tokens:       tokens,
 		clients:      clients,
+		robinIndex:   robinIndex,
 	}, nil
 }
