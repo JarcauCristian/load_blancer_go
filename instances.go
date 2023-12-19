@@ -198,6 +198,46 @@ func (minioInstance *MinIO) Healths() (map[string]string, error) {
 	return health, nil
 }
 
+func (minioInstance *MinIO) listPath(path string) ([]string, error) {
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return nil, err
+	}
+
+	var findPath []string
+
+	var wg sync.WaitGroup
+
+	wg.Add(len(healthyInstances))
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+
+		go func(alias []string, datasetPath string) {
+			defer wg.Done()
+
+			finding, err := search(alias, datasetPath)
+
+			if err != nil {
+				fmt.Println("Is not present here!")
+			}
+
+			if finding != "" {
+				findPath = []string{alias[0], alias[1]}
+			}
+		}(alias, path)
+	}
+
+	wg.Wait()
+
+	files, err := listMinioPath(findPath, path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
 func (minioInstance *MinIO) findObject(datasetPath string) (string, error) {
 	healthyInstances, err := minioInstance.Healths()
 

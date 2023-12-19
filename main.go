@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"io"
 	"mime/multipart"
@@ -22,12 +21,7 @@ func main() {
 	r := gin.Default()
 	r.MaxMultipartMemory = 100 << 20
 
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"https://localhost:3000"}
-	config.AllowHeaders = []string{"Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With"}
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-
-	r.Use(cors.New(config))
+	r.Use(CORSMiddleware())
 
 	r.GET("/get_all_objects", func(c *gin.Context) {
 		extension, okExtension := c.GetQuery("extension")
@@ -302,7 +296,7 @@ func main() {
 
 		if !exists {
 			c.JSON(400, gin.H{
-				"message": "Body is incorrect!",
+				"message": "dataset_path parameter is required!",
 			})
 		} else {
 			data, err := minio.findObject(datasetPath)
@@ -317,6 +311,28 @@ func main() {
 					"url": data,
 				})
 			}
+		}
+	})
+
+	r.GET("/list_location", func(c *gin.Context) {
+		path, exists := c.GetQuery("path")
+
+		if !exists {
+			c.JSON(400, gin.H{
+				"message": "path parameter is required!",
+			})
+		} else {
+			files, err := minio.listPath(path)
+
+			if err != nil {
+				c.JSON(404, gin.H{
+					"message": "Path not found!",
+				})
+			}
+
+			c.JSON(200, gin.H{
+				"files": files,
+			})
 		}
 	})
 
@@ -444,7 +460,9 @@ func main() {
 				for k, v := range tagData {
 					mapTags[k] = v.(string)
 				}
+
 				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType)
+				fmt.Println(result)
 
 				if err != nil {
 					c.JSON(500, gin.H{
@@ -467,7 +485,7 @@ func main() {
 
 func verifyToken(tokenString string) bool {
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", "http://localhost:8080/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
+	req, _ := http.NewRequest("GET", "https://62.72.21.79:8442/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
 	response, err := client.Do(req)
 	if err != nil {
@@ -477,4 +495,20 @@ func verifyToken(tokenString string) bool {
 		return false
 	}
 	return true
+}
+
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }

@@ -71,6 +71,34 @@ func searchTags(alias []string, tags map[string]string) (map[string][]string, er
 	return map[string][]string{alias[0]: findings}, nil
 }
 
+func listMinioPath(alias []string, path string) ([]string, error) {
+	cmdArgs := []string{"./mc", "ls", alias[1] + "/" + path, "--json"}
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+	scanner := bufio.NewScanner(&stdout)
+
+	var files []string
+	for scanner.Scan() {
+		line := scanner.Text()
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &data); err != nil {
+			return nil, err
+		}
+
+		if data["status"].(string) == "success" && data["type"].(string) == "file" {
+			files = append(files, data["key"].(string))
+		}
+	}
+
+	return files, nil
+}
+
 func searchContentType(alias []string, contentType string) (map[string][]string, error) {
 	cmdArgs := []string{"./mc", "find", alias[1], fmt.Sprintf("--metadata=Content-Type=%s", contentType)}
 
