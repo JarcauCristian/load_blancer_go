@@ -597,12 +597,12 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 
 	if len(spaces) == minioInstance.currentIndex-1 {
 		for k, v := range spaces[minioInstance.robinIndex] {
+			// First Case it selects as the target site the site at the current robinIndex if value is greater then 0
 			if v > 0 {
-				fmt.Println("First case")
 				targetSite = k
 				minioInstance.robinIndex++
 			} else {
-				fmt.Println("Second case")
+				// Second Case goes through all the remaining instances if for the current instance gets a negative value for the size
 				for i := minioInstance.robinIndex; i < len(spaces); i++ {
 					leftSpace := false
 					for k, v := range spaces[i] {
