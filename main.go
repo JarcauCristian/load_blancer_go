@@ -464,7 +464,6 @@ func main() {
 				}
 
 				boolTemporary, _ := strconv.ParseBool(temporary)
-				fmt.Println(boolTemporary)
 
 				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 				fmt.Println(result)

@@ -631,7 +631,7 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		bucketName = "dataspace"
 	}
 
-	fmt.Printf("Bucket Name: %s\n", bucketName)
+	fmt.Printf("Target Site: %s\n", targetSite)
 
 	object, err := minioInstance.clients[targetSite].PutObject(
 		context.Background(),
