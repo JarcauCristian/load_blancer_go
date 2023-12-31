@@ -592,9 +592,6 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	maxim := 0.0
 	var targetSite string
 
-	fmt.Println(spaces)
-	fmt.Printf("CurrentIndex: %d\n", minioInstance.currentIndex)
-
 	if len(spaces) == minioInstance.currentIndex-1 {
 		for k, v := range spaces[minioInstance.robinIndex] {
 			// First Case it selects as the target site the site at the current robinIndex if value is greater then 0
@@ -637,8 +634,6 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	} else {
 		bucketName = "dataspace"
 	}
-
-	fmt.Printf("Target Site: %s\n", targetSite)
 
 	object, err := minioInstance.clients[targetSite].PutObject(
 		context.Background(),
