@@ -5,5 +5,12 @@
         "alias": "minio1",
         "access_key": "c3VwZXI=",
         "secret_key": "ZG9vcGVyc2VjcmV0"
+    },
+    {
+        "site": "https://minio-pi.sedimark.work",
+        "token": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJwcm9tZXRoZXVzIiwic3ViIjoic3VwZXIiLCJleHAiOjQ4NDY0NzE1Mzh9.UrPgoKiZpRcgcZMvEdxUjyV_9mJkOayjydxgaaYUlE-wkJvGCbR1JJefGMQBQFu6gX3U41OBcP0r7ZGyhuGHgQ",
+        "alias": "minio2",
+        "access_key": "c3VwZXI=",
+        "secret_key": "ZG9vcGVyc2VjcmV0"
     }
 ]

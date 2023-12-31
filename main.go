@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -431,28 +432,28 @@ func main() {
 
 				tags, tagsExists := c.GetPostForm("tags")
 				fileName, fileNameExists := c.GetPostForm("name")
+				temporary, temporaryExists := c.GetPostForm("temporary")
 
 				var tagData map[string]interface{}
 
 				marshalError := json.Unmarshal([]byte(tags), &tagData)
 
 				fileSize := file.Size
-				contentType := file.Header["Content-Type"][0]
+				contentType := "application/octet-stream"
 
 				content, err := file.Open()
 				defer func(content multipart.File) {
 					err := content.Close()
 					if err != nil {
-						fmt.Println("Here")
 						c.JSON(500, gin.H{
 							"message": "Error closing the file!",
 						})
 					}
 				}(content)
 
-				if err != nil && !tagsExists && marshalError != nil && !fileNameExists {
+				if err != nil && !tagsExists && !temporaryExists && marshalError != nil && !fileNameExists {
 					c.JSON(400, gin.H{
-						"message": "File is empty!",
+						"message": "Please provide all the fields!",
 					})
 				}
 				reader := io.Reader(content)
@@ -462,7 +463,9 @@ func main() {
 					mapTags[k] = v.(string)
 				}
 
-				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType)
+				boolTemporary, _ := strconv.ParseBool(temporary)
+
+				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 				fmt.Println(result)
 
 				if err != nil {

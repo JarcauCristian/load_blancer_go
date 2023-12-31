@@ -546,7 +546,7 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 	return targetSite + "=" + object.Bucket + "=" + fileName, nil
 }
 
-func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string) (map[string]string, error) {
+func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string, temporary bool) (map[string]string, error) {
 	if minioInstance.robinIndex == minioInstance.currentIndex-1 {
 		minioInstance.robinIndex = 0
 	}
@@ -622,9 +622,18 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		}
 		minioInstance.robinIndex++
 	}
+
+	var bucketName string
+
+	if temporary {
+		bucketName = "temp"
+	} else {
+		bucketName = "dataspace"
+	}
+
 	object, err := minioInstance.clients[targetSite].PutObject(
 		context.Background(),
-		"dataspace",
+		bucketName,
 		fileName,
 		reader,
 		int64(fileSize),
