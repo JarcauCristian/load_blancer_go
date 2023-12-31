@@ -592,6 +592,8 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	maxim := 0.0
 	var targetSite string
 
+	fmt.Println(spaces)
+
 	if len(spaces) == minioInstance.currentIndex-1 {
 		for k, v := range spaces[minioInstance.robinIndex] {
 			if v > 0 {
