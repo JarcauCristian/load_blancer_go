@@ -228,10 +228,12 @@ func getTotalBytes(alias []string, token string, fileSize float64) (float64, err
 
 	re := regexp.MustCompile(pattern)
 	processedInput := re.ReplaceAllString(stringBody[startIndex+63:startIndex+63+16], " ")
-	fmt.Println(processedInput)
 	processedInput = strings.Replace(processedInput, " ", "", -1)
 
 	total, err := strconv.ParseFloat(processedInput, 64)
+
+	fmt.Println(total)
+	fmt.Println(fileSize)
 
 	if err != nil {
 		fmt.Println(err)
