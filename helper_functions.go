@@ -232,8 +232,7 @@ func getTotalBytes(alias []string, token string, fileSize float64) (float64, err
 
 	total, err := strconv.ParseFloat(processedInput, 64)
 
-	fmt.Println(total)
-	fmt.Println(fileSize)
+	fmt.Println(processedInput)
 
 	if err != nil {
 		fmt.Println(err)
