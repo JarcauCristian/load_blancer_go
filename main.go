@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -484,7 +485,10 @@ func main() {
 }
 
 func verifyToken(tokenString string) bool {
-	client := &http.Client{}
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
 	req, _ := http.NewRequest("GET", "https://62.72.21.79:8442/auth/realms/react-keycloak/protocol/openid-connect/userinfo", nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
 	response, err := client.Do(req)
