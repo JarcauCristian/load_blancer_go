@@ -226,10 +226,9 @@ func getTotalBytes(alias []string, token string, fileSize float64) (float64, err
 	startIndex := strings.Index(stringBody, "minio_cluster_capacity_raw_free_bytes{server=\"127.0.0.1:9000\"}")
 	pattern := "[^0-9+e\\-\\.$]"
 
-	fmt.Printf("Start index: %d\nstringBody: %s\n", startIndex, stringBody[startIndex+63:startIndex+63+16])
-
 	re := regexp.MustCompile(pattern)
 	processedInput := re.ReplaceAllString(stringBody[startIndex+63:startIndex+63+16], " ")
+	fmt.Println(processedInput)
 	processedInput = strings.Replace(processedInput, " ", "", -1)
 
 	total, err := strconv.ParseFloat(processedInput, 64)
