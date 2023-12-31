@@ -593,13 +593,16 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	var targetSite string
 
 	fmt.Println(spaces)
+	fmt.Printf("CurrentIndex: %d\n", minioInstance.currentIndex)
 
 	if len(spaces) == minioInstance.currentIndex-1 {
 		for k, v := range spaces[minioInstance.robinIndex] {
 			if v > 0 {
+				fmt.Println("First case")
 				targetSite = k
 				minioInstance.robinIndex++
 			} else {
+				fmt.Println("Second case")
 				for i := minioInstance.robinIndex; i < len(spaces); i++ {
 					leftSpace := false
 					for k, v := range spaces[i] {
