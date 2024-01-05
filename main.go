@@ -339,63 +339,35 @@ func main() {
 	})
 
 	r.PUT("/put_object", func(c *gin.Context) {
-		authorization := c.Request.Header["Authorization"]
+		file, okFile := c.GetPostForm("file")
+		fileName, okFileName := c.GetPostForm("file_name")
+		tags, okTags := c.GetPostForm("tags")
 
-		if len(authorization) == 0 {
+		var mapTags map[string]interface{}
+
+		if !okFile && !okFileName && !okTags {
 			c.JSON(400, gin.H{
-				"message": "You need to pass the authorization header!",
+				"message": "Format is incorrect!",
 			})
 		} else {
-			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
-
-			if tokenString == "" {
-				c.JSON(401, gin.H{
-					"message": "You are unauthorized!",
+			err := json.Unmarshal([]byte(tags), &mapTags)
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Something happened when unmarshalling!",
 				})
 			}
+			content := []byte(file)
+			contentSize := float64(len(content))
+			location, err := minio.putObject(content, fileName, mapTags, contentSize)
 
-			verification := verifyToken(tokenString)
-
-			if verification {
-				c.JSON(401, gin.H{
-					"message": "You are unauthorized!",
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Something happened when trying to upload the object!",
 				})
 			} else {
-
-				file, okFile := c.GetPostForm("file")
-				fileName, okFileName := c.GetPostForm("file_name")
-				tags, okTags := c.GetPostForm("tags")
-				fmt.Println(file)
-				fmt.Println(fileName)
-				fmt.Println(tags)
-
-				var mapTags map[string]interface{}
-
-				if !okFile && !okFileName && !okTags {
-					c.JSON(400, gin.H{
-						"message": "Format is incorrect!",
-					})
-				} else {
-					err := json.Unmarshal([]byte(tags), &mapTags)
-					if err != nil {
-						c.JSON(500, gin.H{
-							"message": "Something happened when unmarshalling!",
-						})
-					}
-					content := []byte(file)
-					contentSize := float64(len(content))
-					location, err := minio.putObject(content, fileName, mapTags, contentSize)
-
-					if err != nil {
-						c.JSON(500, gin.H{
-							"message": "Something happened when trying to upload the object!",
-						})
-					} else {
-						c.JSON(201, gin.H{
-							"location": location,
-						})
-					}
-				}
+				c.JSON(201, gin.H{
+					"location": location,
+				})
 			}
 		}
 	})
@@ -523,9 +495,11 @@ func main() {
 		}
 
 		boolTemporary, _ := strconv.ParseBool(temporary)
+		fmt.Println(mapTags)
+		fmt.Println(fileName)
+		fmt.Println(boolTemporary)
 
 		result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
-		fmt.Println(result)
 
 		if err != nil {
 			c.JSON(500, gin.H{
