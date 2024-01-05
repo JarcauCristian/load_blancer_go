@@ -295,13 +295,20 @@ func main() {
 	r.GET("/get_object", func(c *gin.Context) {
 
 		datasetPath, exists := c.GetQuery("dataset_path")
+		forever, foreverExists := c.GetQuery("forever")
 
 		if !exists {
 			c.JSON(400, gin.H{
 				"message": "dataset_path parameter is required!",
 			})
+		} else if !foreverExists {
+			c.JSON(400, gin.H{
+				"message": "forever parameter is required!",
+			})
 		} else {
-			data, err := minio.findObject(datasetPath)
+			foreverBool, _ := strconv.ParseBool(forever)
+
+			data, err := minio.findObject(datasetPath, foreverBool)
 
 			if err != nil {
 				fmt.Println(err)

@@ -238,7 +238,7 @@ func (minioInstance *MinIO) listPath(path string) ([]string, error) {
 	return files, nil
 }
 
-func (minioInstance *MinIO) findObject(datasetPath string) (string, error) {
+func (minioInstance *MinIO) findObject(datasetPath string, forever bool) (string, error) {
 	healthyInstances, err := minioInstance.Healths()
 
 	if err != nil {
@@ -269,7 +269,7 @@ func (minioInstance *MinIO) findObject(datasetPath string) (string, error) {
 
 	wg.Wait()
 
-	shareUrl, err := minioInstance.getObject(findDataset, datasetPath)
+	shareUrl, err := minioInstance.getObject(findDataset, datasetPath, forever)
 
 	if err != nil {
 		return "", err
@@ -656,9 +656,18 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	return result, nil
 }
 
-func (minioInstance *MinIO) getObject(url string, datasetPath string) (string, error) {
+func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bool) (string, error) {
 	path := fmt.Sprintf("%s/%s", minioInstance.aliases[url], datasetPath)
-	cmdArgs := []string{"./mc", "share", "download", "--expire", "10m", "--json", path}
+
+	var expirationTime string
+
+	if forever {
+		expirationTime = "1000000h"
+	} else {
+		expirationTime = "10m"
+	}
+
+	cmdArgs := []string{"./mc", "share", "download", "--expire", expirationTime, "--json", path}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer
