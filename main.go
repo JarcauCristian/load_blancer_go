@@ -481,6 +481,63 @@ func main() {
 		}
 	})
 
+	r.PUT("/upload_free", func(c *gin.Context) {
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(400, gin.H{
+				"message": "File is missing!",
+			})
+		}
+
+		tags, tagsExists := c.GetPostForm("tags")
+		fileName, fileNameExists := c.GetPostForm("name")
+		temporary, temporaryExists := c.GetPostForm("temporary")
+
+		var tagData map[string]interface{}
+
+		marshalError := json.Unmarshal([]byte(tags), &tagData)
+
+		fileSize := file.Size
+		contentType := "application/octet-stream"
+
+		content, err := file.Open()
+		defer func(content multipart.File) {
+			err := content.Close()
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Error closing the file!",
+				})
+			}
+		}(content)
+
+		if err != nil && !tagsExists && !temporaryExists && marshalError != nil && !fileNameExists {
+			c.JSON(400, gin.H{
+				"message": "Please provide all the fields!",
+			})
+		}
+		reader := io.Reader(content)
+
+		var mapTags = make(map[string]string, len(tagData))
+		for k, v := range tagData {
+			mapTags[k] = v.(string)
+		}
+
+		boolTemporary, _ := strconv.ParseBool(temporary)
+
+		result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
+		fmt.Println(result)
+
+		if err != nil {
+			c.JSON(500, gin.H{
+				"message": "Something happened when trying to upload the file!",
+			})
+		} else {
+			c.JSON(201, gin.H{
+				"message": result,
+			})
+		}
+	})
+
 	err = r.Run(":9000")
 	if err != nil {
 		return
