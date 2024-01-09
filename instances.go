@@ -553,8 +553,6 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		minioInstance.robinIndex = 0
 	}
 
-	fmt.Println(minioInstance.robinIndex)
-
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return nil, err
@@ -636,6 +634,8 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	} else {
 		bucketName = "dataspace"
 	}
+
+	fmt.Println("Tags: ", tags)
 
 	object, err := minioInstance.clients[targetSite].PutObject(
 		context.Background(),
