@@ -664,7 +664,7 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	var expirationTime string
 
 	if forever {
-		expirationTime = "10y"
+		expirationTime = "100000h"
 	} else {
 		expirationTime = "10m"
 	}
