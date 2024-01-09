@@ -665,7 +665,7 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	fmt.Println("Get Object: ", forever)
 
 	if forever {
-		expirationTime = "1000000h"
+		expirationTime = "100y"
 	} else {
 		expirationTime = "10m"
 	}
@@ -679,6 +679,7 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
+		fmt.Println(err)
 		return "", err
 	}
 
@@ -688,7 +689,6 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(data)
 
 	if data["status"].(string) != "success" {
 		return "", errors.New("could not get download link for the object")
