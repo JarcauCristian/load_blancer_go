@@ -635,7 +635,9 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		bucketName = "dataspace"
 	}
 
-	fmt.Println("Tags: ", tags)
+	sizeInBytes := len(tags)
+
+	fmt.Printf("Size of tags: %d bytes\n", sizeInBytes)
 
 	object, err := minioInstance.clients[targetSite].PutObject(
 		context.Background(),
