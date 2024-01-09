@@ -307,7 +307,6 @@ func main() {
 			})
 		} else {
 			foreverBool, _ := strconv.ParseBool(forever)
-			fmt.Println(foreverBool)
 
 			data, err := minio.findObject(datasetPath, foreverBool)
 

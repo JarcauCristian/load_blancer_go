@@ -662,13 +662,14 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	path := fmt.Sprintf("%s/%s", minioInstance.aliases[url], datasetPath)
 
 	var expirationTime string
-	fmt.Println("Get Object: ", forever)
 
 	if forever {
-		expirationTime = "100y"
+		expirationTime = "10y"
 	} else {
 		expirationTime = "10m"
 	}
+
+	fmt.Println(expirationTime)
 
 	cmdArgs := []string{"./mc", "share", "download", "--expire", expirationTime, "--json", path}
 
@@ -679,7 +680,6 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 
