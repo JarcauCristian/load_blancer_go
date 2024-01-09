@@ -445,7 +445,6 @@ func main() {
 				boolTemporary, _ := strconv.ParseBool(temporary)
 
 				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
-				fmt.Println(result)
 
 				if err != nil {
 					c.JSON(500, gin.H{
@@ -502,9 +501,6 @@ func main() {
 		}
 
 		boolTemporary, _ := strconv.ParseBool(temporary)
-		fmt.Println(mapTags)
-		fmt.Println(fileName)
-		fmt.Println(boolTemporary)
 
 		result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 

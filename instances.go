@@ -275,6 +275,8 @@ func (minioInstance *MinIO) findObject(datasetPath string, forever bool) (string
 		return "", err
 	}
 
+	fmt.Println(err)
+
 	return shareUrl, nil
 }
 
