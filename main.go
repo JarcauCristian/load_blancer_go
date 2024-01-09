@@ -323,6 +323,33 @@ func main() {
 		}
 	})
 
+	r.GET("/get/object", func(c *gin.Context) {
+
+		datasetPath, exists := c.GetQuery("path")
+
+		if !exists {
+			c.JSON(400, gin.H{
+				"message": "dataset_path parameter is required!",
+			})
+		} else {
+			data, err := minio.getDirectObject(datasetPath)
+
+			if err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			defer data.Close()
+
+			c.Header("Content-Disposition", "attachment; filename=downloaded_file.csv")
+
+			_, err = io.Copy(c.Writer, data)
+			if err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+		}
+	})
+
 	r.GET("/list_location", func(c *gin.Context) {
 		path, exists := c.GetQuery("path")
 
@@ -509,9 +536,7 @@ func main() {
 				"message": "Something happened when trying to upload the file!",
 			})
 		} else {
-			c.JSON(201, gin.H{
-				"message": result,
-			})
+			c.JSON(201, result)
 		}
 	})
 

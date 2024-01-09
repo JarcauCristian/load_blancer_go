@@ -653,9 +653,42 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		return nil, err
 	}
 
-	result := map[string]string{"location": object.Bucket + "/" + fileName, "size": strconv.Itoa(int(object.Size))}
+	result := map[string]string{"location": targetSite + "/" + object.Bucket + "/" + fileName, "size": strconv.Itoa(int(object.Size))}
 
 	return result, nil
+}
+
+func (minioInstance *MinIO) getDirectObject(datasetPath string) (*minio.Object, error) {
+	healthyInstances, err := minioInstance.Healths()
+
+	if err != nil {
+		return &minio.Object{}, err
+	}
+
+	targetSite := strings.Split(datasetPath, "/")[0] + "//" + strings.Split(datasetPath, "/")[2]
+	fmt.Println(targetSite)
+	find := false
+	for k, _ := range healthyInstances {
+		if k == targetSite {
+			find = true
+		}
+	}
+
+	if !find {
+		return nil, errors.New("could not find the target minio instance inside the healthy ones")
+	}
+
+	bucketName := strings.Split(datasetPath, "/")[3]
+	objectPath := strings.Join(strings.Split(datasetPath, "/")[4:], "/")
+
+	reader, err := minioInstance.clients[targetSite].GetObject(
+		context.Background(),
+		bucketName,
+		objectPath,
+		minio.GetObjectOptions{},
+	)
+
+	return reader, nil
 }
 
 func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bool) (string, error) {
@@ -664,12 +697,10 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	var expirationTime string
 
 	if forever {
-		expirationTime = "366d"
+		expirationTime = "7d"
 	} else {
 		expirationTime = "10m"
 	}
-
-	fmt.Println(expirationTime)
 
 	cmdArgs := []string{"./mc", "share", "download", "--expire", expirationTime, "--json", path}
 
