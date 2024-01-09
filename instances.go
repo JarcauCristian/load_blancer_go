@@ -662,6 +662,7 @@ func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bo
 	path := fmt.Sprintf("%s/%s", minioInstance.aliases[url], datasetPath)
 
 	var expirationTime string
+	fmt.Println("Get Object: ", forever)
 
 	if forever {
 		expirationTime = "1000000h"
