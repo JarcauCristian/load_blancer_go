@@ -566,13 +566,23 @@ func main() {
 				})
 			} else {
 				path, exists := c.GetQuery("path")
+				temporary, tempExists := c.GetQuery("temp")
 
 				if !exists {
 					c.JSON(400, gin.H{
 						"message": "Required parameter path not provided!",
 					})
+					return
+				}
+
+				if !tempExists {
+					c.JSON(400, gin.H{
+						"message": "Required parameter temp not provided!",
+					})
+					return
 				} else {
-					err := minio.deleteFile(path)
+					boolTemp, _ := strconv.ParseBool(temporary)
+					err := minio.deleteFile(path, boolTemp)
 
 					if err != nil {
 						c.JSON(500, gin.H{

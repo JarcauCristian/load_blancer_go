@@ -548,7 +548,7 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 	return targetSite + "=" + object.Bucket + "=" + fileName, nil
 }
 
-func (minioInstance *MinIO) deleteFile(datasetPath string) error {
+func (minioInstance *MinIO) deleteFile(datasetPath string, temp bool) error {
 	var mp map[string]interface{}
 
 	healthyInstances, err := minioInstance.Healths()
@@ -558,8 +558,15 @@ func (minioInstance *MinIO) deleteFile(datasetPath string) error {
 
 	errorCounter := 0
 
+	path := ""
+	if temp {
+		path = "temp/" + datasetPath
+	} else {
+		path = "dataspace/" + datasetPath
+	}
+
 	for _, v := range healthyInstances {
-		cmdArgs := []string{"./mc", "rm", "--recursive", v + "/" + datasetPath, "--json"}
+		cmdArgs := []string{"./mc", "rm", "--recursive", v + "/" + path, "--json"}
 
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 		var stdout bytes.Buffer
