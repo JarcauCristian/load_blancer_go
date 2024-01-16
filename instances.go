@@ -548,6 +548,46 @@ func (minioInstance *MinIO) putObject(content []byte, fileName string, tags map[
 	return targetSite + "=" + object.Bucket + "=" + fileName, nil
 }
 
+func (minioInstance *MinIO) deleteFile(datasetPath string) error {
+	var mp map[string]interface{}
+
+	healthyInstances, err := minioInstance.Healths()
+	if err != nil {
+		return err
+	}
+
+	errorCounter := 0
+
+	for _, v := range healthyInstances {
+		cmdArgs := []string{"./mc", "rm", "--recursive", v + "/" + datasetPath, "--json"}
+
+		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		err = json.Unmarshal(stdout.Bytes(), &mp)
+		if err != nil {
+			return err
+		}
+
+		if mp["status"].(string) == "error" {
+			errorCounter++
+		}
+	}
+
+	if errorCounter > 0 {
+		return errors.New("could not delete all the found paths")
+	}
+
+	return nil
+}
+
 func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string, temporary bool) (map[string]string, error) {
 	if minioInstance.robinIndex == minioInstance.currentIndex-1 {
 		minioInstance.robinIndex = 0
@@ -668,7 +708,6 @@ func (minioInstance *MinIO) getDirectObject(datasetPath string) (*minio.Object, 
 	}
 
 	targetSite := strings.Split(datasetPath, "/")[0] + "//" + strings.Split(datasetPath, "/")[2]
-	fmt.Println(targetSite)
 	find := false
 	for k, _ := range healthyInstances {
 		if k == targetSite {

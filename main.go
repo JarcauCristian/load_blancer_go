@@ -542,6 +542,52 @@ func main() {
 		}
 	})
 
+	r.DELETE("/delete_path", func(c *gin.Context) {
+		authorization := c.Request.Header["Authorization"]
+
+		if len(authorization) == 0 {
+			c.JSON(400, gin.H{
+				"message": "You need to pass the authorization header!",
+			})
+		} else {
+			tokenString := strings.Split(c.Request.Header["Authorization"][0], " ")[1]
+
+			if tokenString == "" {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			}
+
+			verification := verifyToken(tokenString)
+
+			if !verification {
+				c.JSON(401, gin.H{
+					"message": "You are unauthorized!",
+				})
+			} else {
+				path, exists := c.GetQuery("path")
+
+				if !exists {
+					c.JSON(400, gin.H{
+						"message": "Required parameter path not provided!",
+					})
+				} else {
+					err := minio.deleteFile(path)
+
+					if err != nil {
+						c.JSON(500, gin.H{
+							"message": "Something happened when deleting the path!",
+						})
+					} else {
+						c.JSON(200, gin.H{
+							"message": "Path deleted successfully!",
+						})
+					}
+				}
+			}
+		}
+	})
+
 	err = r.Run(":9000")
 	if err != nil {
 		return
