@@ -825,13 +825,15 @@ func NewMinIO() (*MinIO, error) {
 		accessKey, base64Err := base64.StdEncoding.DecodeString(line.AccessKey)
 
 		if base64Err != nil {
-			return nil, err
+			fmt.Println(base64Err)
+			return nil, base64Err
 		}
 
 		secretKey, base64Err := base64.StdEncoding.DecodeString(line.SecretKey)
 
 		if base64Err != nil {
-			return nil, err
+			fmt.Println(base64Err)
+			return nil, base64Err
 		}
 
 		aliases[line.Site] = line.Alias
@@ -841,6 +843,7 @@ func NewMinIO() (*MinIO, error) {
 			Secure: secure,
 		})
 		if err != nil {
+			fmt.Println(err)
 			return nil, err
 		}
 		clients[line.Site] = minioClient
@@ -848,6 +851,7 @@ func NewMinIO() (*MinIO, error) {
 
 		cmd := exec.Command("./mc", "alias", "set", line.Alias, line.Site, string(accessKey), string(secretKey))
 		if err = cmd.Run(); err != nil {
+			fmt.Println(err)
 			return nil, err
 		}
 	}
