@@ -25,7 +25,7 @@ func main() {
 
 	r.Use(CORSMiddleware())
 
-	r.GET("/get_all_objects", func(c *gin.Context) {
+	r.GET("/balancer/get_all_objects", func(c *gin.Context) {
 		extension, okExtension := c.GetQuery("extension")
 
 		authorization := c.Request.Header["Authorization"]
@@ -68,7 +68,7 @@ func main() {
 		}
 	})
 
-	r.POST("/get_objects", func(c *gin.Context) {
+	r.POST("/balancer/get_objects", func(c *gin.Context) {
 		authorization := c.Request.Header["Authorization"]
 
 		if len(authorization) == 0 {
@@ -114,7 +114,7 @@ func main() {
 		}
 	})
 
-	r.POST("/add_instance", func(c *gin.Context) {
+	r.POST("/balancer/add_instance", func(c *gin.Context) {
 
 		var instance InstanceModel
 		addInstanceErr := c.BindJSON(&instance)
@@ -136,7 +136,7 @@ func main() {
 		}
 	})
 
-	r.POST("/add_instances", func(c *gin.Context) {
+	r.POST("/balancer/add_instances", func(c *gin.Context) {
 
 		var servers ServersModel
 		addInstancesErr := c.BindJSON(&servers)
@@ -158,7 +158,7 @@ func main() {
 		}
 	})
 
-	r.POST("/search_by_tags", func(c *gin.Context) {
+	r.POST("/balancer/search_by_tags", func(c *gin.Context) {
 		authorization := c.Request.Header["Authorization"]
 
 		if len(authorization) == 0 {
@@ -202,7 +202,7 @@ func main() {
 		}
 	})
 
-	r.POST("/search_by_content_type", func(c *gin.Context) {
+	r.POST("/balancer/search_by_content_type", func(c *gin.Context) {
 
 		authorization := c.Request.Header["Authorization"]
 
@@ -247,7 +247,7 @@ func main() {
 		}
 	})
 
-	r.POST("/search_by_extension", func(c *gin.Context) {
+	r.POST("/balancer/search_by_extension", func(c *gin.Context) {
 
 		authorization := c.Request.Header["Authorization"]
 
@@ -292,7 +292,7 @@ func main() {
 		}
 	})
 
-	r.GET("/get_object", func(c *gin.Context) {
+	r.GET("/balancer/get_object", func(c *gin.Context) {
 
 		datasetPath, exists := c.GetQuery("dataset_path")
 		forever, foreverExists := c.GetQuery("forever")
@@ -323,7 +323,7 @@ func main() {
 		}
 	})
 
-	r.GET("/get/object", func(c *gin.Context) {
+	r.GET("/balancer/get/object", func(c *gin.Context) {
 
 		datasetPath, exists := c.GetQuery("path")
 
@@ -350,7 +350,7 @@ func main() {
 		}
 	})
 
-	r.GET("/list_location", func(c *gin.Context) {
+	r.GET("/balancer/list_location", func(c *gin.Context) {
 		path, exists := c.GetQuery("path")
 
 		if !exists {
@@ -372,7 +372,7 @@ func main() {
 		}
 	})
 
-	r.PUT("/put_object", func(c *gin.Context) {
+	r.PUT("/balancer/put_object", func(c *gin.Context) {
 		file, okFile := c.GetPostForm("file")
 		fileName, okFileName := c.GetPostForm("file_name")
 		tags, okTags := c.GetPostForm("tags")
@@ -406,7 +406,7 @@ func main() {
 		}
 	})
 
-	r.PUT("/upload", func(c *gin.Context) {
+	r.PUT("/balancer/upload", func(c *gin.Context) {
 
 		authorization := c.Request.Header["Authorization"]
 
@@ -486,7 +486,7 @@ func main() {
 		}
 	})
 
-	r.PUT("/upload_free", func(c *gin.Context) {
+	r.PUT("/balancer/upload_free", func(c *gin.Context) {
 		file, err := c.FormFile("file")
 		if err != nil {
 			c.JSON(400, gin.H{
@@ -542,7 +542,7 @@ func main() {
 		}
 	})
 
-	r.DELETE("/delete_path", func(c *gin.Context) {
+	r.DELETE("/balancer/delete_path", func(c *gin.Context) {
 		authorization := c.Request.Header["Authorization"]
 
 		if len(authorization) == 0 {

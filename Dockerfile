@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY configs ./configs
 
-RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
+RUN curl https://dl.min.io/client/mc/release/linux-arm64/mc -o mc
 
 RUN chmod +x ./mc
 
