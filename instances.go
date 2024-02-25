@@ -566,7 +566,7 @@ func (minioInstance *MinIO) deleteFile(datasetPath string, temp bool) error {
 	}
 
 	for _, v := range healthyInstances {
-		cmdArgs := []string{"./mc", "rm", "--recursive", v + "/" + path, "--json"}
+		cmdArgs := []string{"./mc", "rm", "--recursive", v + "/" + path, "--json", "--force"}
 
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 		var stdout bytes.Buffer
