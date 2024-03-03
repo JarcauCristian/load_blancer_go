@@ -579,12 +579,10 @@ func (minioInstance *MinIO) deleteFile(datasetPath string, temp bool) error {
 		}
 
 		err = json.Unmarshal(stdout.Bytes(), &mp)
-		if err != nil {
-			return err
-		}
-
-		if mp["status"].(string) == "error" {
-			errorCounter++
+		if err == nil {
+			if mp["status"].(string) == "error" {
+				errorCounter++
+			}
 		}
 	}
 
