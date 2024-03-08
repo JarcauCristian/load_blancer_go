@@ -485,12 +485,13 @@ func main() {
 	})
 
 	r.PUT("/balancer/upload_free", func(c *gin.Context) {
-		file, err := c.FormFile("file")
+		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			c.JSON(400, gin.H{
 				"message": "File is missing!",
 			})
 		}
+		defer file.Close()
 
 		tags, tagsExists := c.GetPostForm("tags")
 		fileName, fileNameExists := c.GetPostForm("name")
@@ -503,22 +504,36 @@ func main() {
 		fileSize := file.Size
 		contentType := "application/octet-stream"
 
-		content, err := file.Open()
-		defer func(content multipart.File) {
-			err := content.Close()
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": "Error closing the file!",
-				})
-			}
-		}(content)
+		// content, err := file.Open()
+		// defer func(content multipart.File) {
+		// 	err := content.Close()
+		// 	if err != nil {
+		// 		c.JSON(500, gin.H{
+		// 			"message": "Error closing the file!",
+		// 		})
+		// 	}
+		// }(content)
+
+		buffer := make([]byte, 1024)
+        var buf bytes.Buffer
+        for {
+            bytesRead, err := file.Read(buffer)
+            if err != nil && err != io.EOF {
+                c.String(http.StatusInternalServerError, "Error reading the file")
+                return
+            }
+            if bytesRead == 0 {
+                break
+            }
+            buf.Write(buffer[:bytesRead])
+        }
 
 		if err != nil && !tagsExists && !temporaryExists && marshalError != nil && !fileNameExists {
 			c.JSON(400, gin.H{
 				"message": "Please provide all the fields!",
 			})
 		}
-		reader := io.Reader(content)
+		//reader := io.Reader(content)
 
 		var mapTags = make(map[string]string, len(tagData))
 		for k, v := range tagData {
@@ -529,7 +544,7 @@ func main() {
 
 		fmt.Println(mapTags)
 
-		result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
+		result, err := minio.uploadFile(&buf, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 
 		if err != nil {
 			c.JSON(500, gin.H{
