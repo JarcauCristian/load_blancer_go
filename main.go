@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -427,11 +428,36 @@ func main() {
 					"message": "You are unauthorized!",
 				})
 			} else {
-				file, err := c.FormFile("file")
+				file, header, err := c.Request.FormFile("file")
 				if err != nil {
 					c.JSON(400, gin.H{
 						"message": "File is missing!",
 					})
+					return
+				}
+
+				defer func(file multipart.File) {
+					err := file.Close()
+					if err != nil {
+						c.JSON(500, gin.H{
+							"message": "Could not close the file!",
+						})
+						return
+					}
+				}(file)
+
+				buffer := make([]byte, 1024)
+				var buf bytes.Buffer
+				for {
+					bytesRead, err := file.Read(buffer)
+					if err != nil && err != io.EOF {
+						c.String(http.StatusInternalServerError, "Error reading the file")
+						return
+					}
+					if bytesRead == 0 {
+						break
+					}
+					buf.Write(buffer[:bytesRead])
 				}
 
 				tags, tagsExists := c.GetPostForm("tags")
@@ -442,25 +468,14 @@ func main() {
 
 				marshalError := json.Unmarshal([]byte(tags), &tagData)
 
-				fileSize := file.Size
+				fileSize := header.Size
 				contentType := "application/octet-stream"
-
-				content, err := file.Open()
-				defer func(content multipart.File) {
-					err := content.Close()
-					if err != nil {
-						c.JSON(500, gin.H{
-							"message": "Error closing the file!",
-						})
-					}
-				}(content)
 
 				if err != nil && !tagsExists && !temporaryExists && marshalError != nil && !fileNameExists {
 					c.JSON(400, gin.H{
 						"message": "Please provide all the fields!",
 					})
 				}
-				reader := io.Reader(content)
 
 				var mapTags = make(map[string]string, len(tagData))
 				for k, v := range tagData {
@@ -469,7 +484,7 @@ func main() {
 
 				boolTemporary, _ := strconv.ParseBool(temporary)
 
-				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
+				result, err := minio.uploadFile(&buf, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 
 				if err != nil {
 					c.JSON(500, gin.H{
@@ -491,7 +506,16 @@ func main() {
 				"message": "File is missing!",
 			})
 		}
-		defer file.Close()
+
+		defer func(file multipart.File) {
+			err := file.Close()
+			if err != nil {
+				c.JSON(500, gin.H{
+					"message": "Could not close the file!",
+				})
+				return
+			}
+		}(file)
 
 		tags, tagsExists := c.GetPostForm("tags")
 		fileName, fileNameExists := c.GetPostForm("name")
@@ -501,39 +525,28 @@ func main() {
 
 		marshalError := json.Unmarshal([]byte(tags), &tagData)
 
-		fileSize := file.Size
+		fileSize := header.Size
 		contentType := "application/octet-stream"
 
-		// content, err := file.Open()
-		// defer func(content multipart.File) {
-		// 	err := content.Close()
-		// 	if err != nil {
-		// 		c.JSON(500, gin.H{
-		// 			"message": "Error closing the file!",
-		// 		})
-		// 	}
-		// }(content)
-
 		buffer := make([]byte, 1024)
-        var buf bytes.Buffer
-        for {
-            bytesRead, err := file.Read(buffer)
-            if err != nil && err != io.EOF {
-                c.String(http.StatusInternalServerError, "Error reading the file")
-                return
-            }
-            if bytesRead == 0 {
-                break
-            }
-            buf.Write(buffer[:bytesRead])
-        }
+		var buf bytes.Buffer
+		for {
+			bytesRead, err := file.Read(buffer)
+			if err != nil && err != io.EOF {
+				c.String(http.StatusInternalServerError, "Error reading the file")
+				return
+			}
+			if bytesRead == 0 {
+				break
+			}
+			buf.Write(buffer[:bytesRead])
+		}
 
 		if err != nil && !tagsExists && !temporaryExists && marshalError != nil && !fileNameExists {
 			c.JSON(400, gin.H{
 				"message": "Please provide all the fields!",
 			})
 		}
-		//reader := io.Reader(content)
 
 		var mapTags = make(map[string]string, len(tagData))
 		for k, v := range tagData {
@@ -541,8 +554,6 @@ func main() {
 		}
 
 		boolTemporary, _ := strconv.ParseBool(temporary)
-
-		fmt.Println(mapTags)
 
 		result, err := minio.uploadFile(&buf, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 

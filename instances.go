@@ -696,7 +696,6 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 		},
 	)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
