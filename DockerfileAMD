@@ -12,6 +12,8 @@ RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
 
 RUN chmod +x ./mc
 
+RUN export PATH=$PATH:/app/
+
 COPY *.go ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /minio_api
