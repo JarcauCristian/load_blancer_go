@@ -21,7 +21,7 @@ jobs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_PASSWORD }}
     - name: Build image
-      run: docker build . --file Dockerfile --tag scr4pp/go_load_balancer:latest
+      run: docker build . --file DockerfileAMD --tag scr4pp/go_load_balancer:latest
     - name: Push Image
       uses: docker/build-push-action@v2
       with:
