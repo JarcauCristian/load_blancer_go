@@ -846,7 +846,7 @@ func NewMinIO() (*MinIO, error) {
 		clients[line.Site] = minioClient
 		tokens[line.Site] = line.Token
 
-		cmd := exec.Command("./mc", "alias", "set", line.Alias, line.Site, string(accessKey), string(secretKey))
+		cmd := exec.Command("mc", "alias", "set", line.Alias, line.Site, string(accessKey), string(secretKey))
 		if err = cmd.Run(); err != nil {
 			fmt.Println(err)
 			return nil, err
