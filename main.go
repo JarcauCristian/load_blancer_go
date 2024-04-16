@@ -330,7 +330,15 @@ func main() {
 				"message": "dataset_path parameter is required!",
 			})
 		} else {
-			data, err := minio.getDirectObject(datasetPath)
+			datasetPath = strings.Replace(datasetPath, "'", "\"", -1)
+			var datasetPaths []string
+
+			if err := json.Unmarshal([]byte(datasetPath), &datasetPaths); err != nil {
+				c.JSON(500, gin.H{"message": err.Error()})
+				return
+			}
+
+			data, err := minio.getDirectObject(datasetPaths)
 
 			if err != nil {
 				c.JSON(500, gin.H{"error": err.Error()})

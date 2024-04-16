@@ -650,18 +650,27 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	return results, nil
 }
 
-func (minioInstance *MinIO) getDirectObject(datasetPath string) (*minio.Object, error) {
+func (minioInstance *MinIO) getDirectObject(datasetPaths []string) (*minio.Object, error) {
 	healthyInstances, err := minioInstance.Healths()
 
 	if err != nil {
 		return &minio.Object{}, err
 	}
 
-	targetSite := strings.Split(datasetPath, "/")[0] + "//" + strings.Split(datasetPath, "/")[2]
 	find := false
-	for k := range healthyInstances {
-		if k == targetSite {
-			find = true
+	targetIndex := -1
+	targetString := ""
+	for i := range datasetPaths {
+		if find {
+			break
+		}
+		for k := range healthyInstances {
+			if k == strings.Split(datasetPaths[i], "/")[0]+"//"+strings.Split(datasetPaths[i], "/")[2] {
+				find = true
+				targetIndex = 0
+				targetString = strings.Split(datasetPaths[i], "/")[0] + "//" + strings.Split(datasetPaths[i], "/")[2]
+				break
+			}
 		}
 	}
 
@@ -669,10 +678,10 @@ func (minioInstance *MinIO) getDirectObject(datasetPath string) (*minio.Object, 
 		return nil, errors.New("could not find the target minio instance inside the healthy ones")
 	}
 
-	bucketName := strings.Split(datasetPath, "/")[3]
-	objectPath := strings.Join(strings.Split(datasetPath, "/")[4:], "/")
+	bucketName := strings.Split(datasetPaths[targetIndex], "/")[3]
+	objectPath := strings.Join(strings.Split(datasetPaths[0], "/")[4:], "/")
 
-	reader, err := minioInstance.clients[targetSite].GetObject(
+	reader, err := minioInstance.clients[targetString].GetObject(
 		context.Background(),
 		bucketName,
 		objectPath,
