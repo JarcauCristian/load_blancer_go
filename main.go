@@ -483,16 +483,20 @@ func main() {
 
 				reader := bytes.NewReader(buf.Bytes())
 
-				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
+				results, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 
 				if err != nil {
 					c.JSON(500, gin.H{
 						"message": "Something happened when trying to upload the file!",
 					})
 				} else {
-					c.JSON(201, gin.H{
-						"message": result,
-					})
+					if len(results) == 0 {
+						c.JSON(404, gin.H{
+							"message": "Could not upload the file in any of the instances!",
+						})
+					} else {
+						c.JSON(201, results)
+					}
 				}
 			}
 		}
