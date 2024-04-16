@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -436,15 +435,13 @@ func main() {
 					return
 				}
 
-				defer func(file multipart.File) {
-					err := file.Close()
-					if err != nil {
-						c.JSON(500, gin.H{
-							"message": "Could not close the file!",
-						})
-						return
+				defer func() {
+					if file != nil {
+						if err := file.Close(); err != nil {
+							c.JSON(500, gin.H{"message": "Could not close the file!"})
+						}
 					}
-				}(file)
+				}()
 
 				buffer := make([]byte, 1024)
 				var buf bytes.Buffer
@@ -484,7 +481,9 @@ func main() {
 
 				boolTemporary, _ := strconv.ParseBool(temporary)
 
-				result, err := minio.uploadFile(&buf, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
+				reader := bytes.NewReader(buf.Bytes())
+
+				result, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 
 				if err != nil {
 					c.JSON(500, gin.H{
@@ -499,23 +498,22 @@ func main() {
 		}
 	})
 
-	r.PUT("/balancer/upload_free", func(c *gin.Context) {
+	r.POST("/balancer/upload_free", func(c *gin.Context) {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			c.JSON(400, gin.H{
 				"message": "File is missing!",
 			})
+			return
 		}
 
-		defer func(file multipart.File) {
-			err := file.Close()
-			if err != nil {
-				c.JSON(500, gin.H{
-					"message": "Could not close the file!",
-				})
-				return
+		defer func() {
+			if file != nil {
+				if err := file.Close(); err != nil {
+					c.JSON(500, gin.H{"message": "Could not close the file!"})
+				}
 			}
-		}(file)
+		}()
 
 		tags, tagsExists := c.GetPostForm("tags")
 		fileName, fileNameExists := c.GetPostForm("name")
@@ -547,6 +545,7 @@ func main() {
 				"message": "Please provide all the fields!",
 			})
 		}
+		reader := bytes.NewReader(buf.Bytes())
 
 		var mapTags = make(map[string]string, len(tagData))
 		for k, v := range tagData {
@@ -555,14 +554,20 @@ func main() {
 
 		boolTemporary, _ := strconv.ParseBool(temporary)
 
-		result, err := minio.uploadFile(&buf, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
+		results, err := minio.uploadFile(reader, mapTags, float64(fileSize), fileName, contentType, boolTemporary)
 
 		if err != nil {
 			c.JSON(500, gin.H{
 				"message": "Something happened when trying to upload the file!",
 			})
 		} else {
-			c.JSON(201, result)
+			if len(results) == 0 {
+				c.JSON(404, gin.H{
+					"message": "Could not upload the file in any of the instances!",
+				})
+			} else {
+				c.JSON(201, results)
+			}
 		}
 	})
 

@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -593,11 +592,7 @@ func (minioInstance *MinIO) deleteFile(datasetPath string, temp bool) error {
 	return nil
 }
 
-func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string, temporary bool) (map[string]string, error) {
-	if minioInstance.robinIndex == minioInstance.currentIndex-1 {
-		minioInstance.robinIndex = 0
-	}
-
+func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string, fileSize float64, fileName string, contentType string, temporary bool) ([]string, error) {
 	healthyInstances, err := minioInstance.Healths()
 	if err != nil {
 		return nil, err
@@ -613,65 +608,7 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 
 	var wg sync.WaitGroup
 	healthyInstancesLength := len(healthyInstances)
-	var spaces = make([]map[string]float64, healthyInstancesLength)
-	index := 0
-
-	wg.Add(healthyInstancesLength)
-	for k, v := range healthyInstances {
-		alias := []string{k, v}
-		token := minioInstance.tokens[k]
-		site := k
-		go func(alias []string, token string, fileSize float64) {
-			defer wg.Done()
-			spaceLeft, err := getTotalBytes(alias, token, fileSize)
-			if err != nil {
-				return
-			} else {
-				spaces[index] = map[string]float64{site: spaceLeft}
-				index++
-			}
-		}(alias, token, fileSize)
-	}
-
-	wg.Wait()
-	maxim := 0.0
-	var targetSite string
-
-	if len(spaces) == minioInstance.currentIndex-1 {
-		for k, v := range spaces[minioInstance.robinIndex] {
-			// First Case it selects as the target site the site at the current robinIndex if value is greater then 0
-			if v > 0 {
-				targetSite = k
-				minioInstance.robinIndex++
-			} else {
-				// Second Case goes through all the remaining instances if for the current instance gets a negative value for the size
-				for i := minioInstance.robinIndex; i < len(spaces); i++ {
-					leftSpace := false
-					for k, v := range spaces[i] {
-						if v > 0 {
-							targetSite = k
-							minioInstance.robinIndex++
-							leftSpace = true
-						}
-					}
-					if leftSpace {
-						break
-					}
-				}
-			}
-		}
-	} else {
-		for _, space := range spaces {
-			for k, v := range space {
-				if v > maxim {
-					targetSite = k
-					maxim = v
-				}
-			}
-		}
-		minioInstance.robinIndex++
-	}
-
+	results := make([]string, 0)
 	var bucketName string
 
 	if temporary {
@@ -679,29 +616,38 @@ func (minioInstance *MinIO) uploadFile(reader io.Reader, tags map[string]string,
 	} else {
 		bucketName = "dataspace"
 	}
-
-	sizeInBytes := len(tags)
-
-	fmt.Printf("Size of tags: %d bytes\n", sizeInBytes)
-
-	object, err := minioInstance.clients[targetSite].PutObject(
-		context.Background(),
-		bucketName,
-		fileName,
-		reader,
-		int64(fileSize),
-		minio.PutObjectOptions{
-			UserTags:    tags,
-			ContentType: contentType,
-		},
-	)
-	if err != nil {
-		return nil, err
+	var mu sync.Mutex
+	wg.Add(healthyInstancesLength)
+	for k, v := range healthyInstances {
+		alias := []string{k, v}
+		token := minioInstance.tokens[k]
+		site := k
+		go func(alias []string, token string, fileSize float64) {
+			defer wg.Done()
+			object, err := minioInstance.clients[site].PutObject(
+				context.Background(),
+				bucketName,
+				fileName,
+				reader,
+				int64(fileSize),
+				minio.PutObjectOptions{
+					UserTags:    tags,
+					ContentType: contentType,
+				},
+			)
+			if err != nil {
+				fmt.Println("Upload error:", err)
+				return
+			}
+			result := site + "/" + object.Bucket + "/" + fileName
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
+		}(alias, token, fileSize)
 	}
+	wg.Wait()
 
-	result := map[string]string{"location": targetSite + "/" + object.Bucket + "/" + fileName, "size": strconv.Itoa(int(object.Size))}
-
-	return result, nil
+	return results, nil
 }
 
 func (minioInstance *MinIO) getDirectObject(datasetPath string) (*minio.Object, error) {
@@ -713,7 +659,7 @@ func (minioInstance *MinIO) getDirectObject(datasetPath string) (*minio.Object, 
 
 	targetSite := strings.Split(datasetPath, "/")[0] + "//" + strings.Split(datasetPath, "/")[2]
 	find := false
-	for k, _ := range healthyInstances {
+	for k := range healthyInstances {
 		if k == targetSite {
 			find = true
 		}
