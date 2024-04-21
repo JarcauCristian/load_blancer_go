@@ -237,7 +237,7 @@ func (minioInstance *MinIO) listPath(path string) ([]string, error) {
 	return files, nil
 }
 
-func (minioInstance *MinIO) findObject(datasetPath string, forever bool) (string, error) {
+func (minioInstance *MinIO) findObject(datasetPath string) (string, error) {
 	healthyInstances, err := minioInstance.Healths()
 
 	if err != nil {
@@ -253,12 +253,7 @@ func (minioInstance *MinIO) findObject(datasetPath string, forever bool) (string
 
 		go func(alias []string, datasetPath string) {
 			defer wg.Done()
-
-			finding, err := search(alias, datasetPath)
-
-			if err != nil {
-				fmt.Println("Is not present here!")
-			}
+			finding, _ := search(alias, datasetPath)
 
 			if finding != "" {
 				findDataset = finding
@@ -268,13 +263,12 @@ func (minioInstance *MinIO) findObject(datasetPath string, forever bool) (string
 
 	wg.Wait()
 
-	shareUrl, err := minioInstance.getObject(findDataset, datasetPath, forever)
+	shareUrl, err := minioInstance.getObject(findDataset, datasetPath)
 
 	if err != nil {
+		fmt.Println(err)
 		return "", err
 	}
-
-	fmt.Println(err)
 
 	return shareUrl, nil
 }
@@ -691,18 +685,10 @@ func (minioInstance *MinIO) getDirectObject(datasetPaths []string) (*minio.Objec
 	return reader, nil
 }
 
-func (minioInstance *MinIO) getObject(url string, datasetPath string, forever bool) (string, error) {
+func (minioInstance *MinIO) getObject(url string, datasetPath string) (string, error) {
 	path := fmt.Sprintf("%s/%s", minioInstance.aliases[url], datasetPath)
 
-	var expirationTime string
-
-	if forever {
-		expirationTime = "7d"
-	} else {
-		expirationTime = "10m"
-	}
-
-	cmdArgs := []string{"./mc", "share", "download", "--expire", expirationTime, "--json", path}
+	cmdArgs := []string{"./mc", "share", "download", "--json", path}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	var stdout bytes.Buffer

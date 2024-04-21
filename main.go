@@ -306,10 +306,15 @@ func main() {
 		} else {
 			foreverBool, _ := strconv.ParseBool(forever)
 
-			data, err := minio.findObject(datasetPath, foreverBool)
+			if foreverBool {
+				datasetPath = "dataspace/" + datasetPath
+			} else {
+				datasetPath = "temp/" + datasetPath
+			}
+
+			data, err := minio.findObject(datasetPath)
 
 			if err != nil {
-				fmt.Println(err)
 				c.JSON(500, gin.H{
 					"message": "Something went wrong when getting the object!",
 				})
